@@ -1,0 +1,153 @@
+<div>
+  <div class="flex justify-between items-center mb-8">
+    <h1 class="text-3xl font-bold text-primary">Your Forms</h1>
+    <a href="/form/new" class="btn-accent">Create New Form</a>
+  </div>
+  
+  <% if (forms && forms.length > 0) { %>
+    <div class="grid gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
+      <% forms.forEach(form => { %>
+        <div class="bg-white rounded-lg shadow-md overflow-hidden border border-gray-200">
+          <div class="p-6">
+            <div class="flex justify-between items-center mb-4">
+              <h2 class="text-xl font-bold text-primary"><%= form.name %></h2>
+              <span class="text-xs text-gray-500">
+                Created: <%= new Date(form.createdAt).toLocaleDateString() %>
+              </span>
+            </div>
+            
+            <div class="mb-4">
+              <p class="text-sm text-gray-600">
+                <strong>Fields:</strong> <%= form.fields.length %>
+              </p>
+              <p class="text-sm text-gray-600">
+                <strong>Allowed Domains:</strong>
+                <% if (form.domains && form.domains.length > 0) { %>
+                  <%= form.domains.join(', ') %>
+                <% } else { %>
+                  Any domain
+                <% } %>
+              </p>
+            </div>
+            
+            <div class="flex flex-wrap gap-2 mt-4">
+              <a href="/form/edit/<%= form.id %>" class="btn-outline text-sm py-1">Edit Form</a>
+              <a href="/form/entries/<%= form.id %>" class="btn-outline text-sm py-1">View Entries</a>
+              <a href="/form/embed/<%= form.id %>" class="btn-outline text-sm py-1">Get Embed Code</a>
+              <button 
+                data-form-id="<%= form.id %>" 
+                data-form-name="<%= form.name %>"
+                class="delete-form-btn text-sm py-1 px-4 rounded text-white bg-red-500 hover:bg-red-600 transition-colors">
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      <% }); %>
+    </div>
+  <% } else { %>
+    <div class="bg-white rounded-lg shadow-md p-8 text-center">
+      <div class="flex flex-col items-center">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 text-gray-400 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 13h6m-3-3v6m-9 1V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
+        </svg>
+        <h3 class="text-xl font-medium text-gray-900 mb-2">No forms yet</h3>
+        <p class="text-gray-600 mb-6">Create your first form to get started with HTTPForms.</p>
+        <a href="/form/new" class="btn-accent">Create New Form</a>
+      </div>
+    </div>
+  <% } %>
+</div>
+
+<!-- Delete Form Modal -->
+<div id="delete-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+  <div class="bg-white rounded-lg max-w-md w-full p-6">
+    <h3 class="text-xl font-bold text-primary mb-4">Delete Form</h3>
+    <p class="text-gray-600 mb-6">Are you sure you want to delete "<span id="form-name-display"></span>"? This action cannot be undone.</p>
+    <div class="flex justify-end space-x-4">
+      <button id="cancel-delete" class="btn-outline">Cancel</button>
+      <button id="confirm-delete" class="text-white bg-red-500 hover:bg-red-600 py-2 px-4 rounded transition-colors">Delete</button>
+    </div>
+  </div>
+</div>
+
+<% /* Define scripts to be included in the layout */ %>
+<% scripts = `
+<script>
+  // Delete form functionality
+  const deleteButtons = document.querySelectorAll('.delete-form-btn');
+  const deleteModal = document.getElementById('delete-modal');
+  const cancelDelete = document.getElementById('cancel-delete');
+  const confirmDelete = document.getElementById('confirm-delete');
+  const formNameDisplay = document.getElementById('form-name-display');
+  
+  let formIdToDelete = null;
+  
+  deleteButtons.forEach(button => {
+    button.addEventListener('click', function() {
+      console.log('Delete button clicked for form:', this.dataset.formId);
+      formIdToDelete = this.dataset.formId;
+      formNameDisplay.textContent = this.dataset.formName;
+      deleteModal.classList.remove('hidden');
+    });
+  });
+  
+  cancelDelete.addEventListener('click', function() {
+    console.log('Delete canceled');
+    deleteModal.classList.add('hidden');
+    formIdToDelete = null;
+  });
+  
+  confirmDelete.addEventListener('click', async function() {
+    console.log('Confirm delete clicked for form:', formIdToDelete);
+    if (formIdToDelete) {
+      // Disable the button and show loading state
+      confirmDelete.disabled = true;
+      confirmDelete.textContent = 'Deleting...';
+      
+      try {
+        console.log('Sending delete request for form:', formIdToDelete);
+        const response = await fetch(\`/form/delete/\${formIdToDelete}\`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          // Include credentials to send cookies with the request
+          credentials: 'same-origin'
+        });
+        
+        if (!response.ok) {
+          throw new Error(\`Server returned \${response.status}: \${response.statusText}\`);
+        }
+        
+        const result = await response.json();
+        
+        if (result.success) {
+          window.location.reload();
+        } else {
+          alert('Failed to delete form: ' + (result.message || 'Unknown error'));
+        }
+      } catch (error) {
+        console.error('Error deleting form:', error);
+        alert('An error occurred while deleting the form: ' + error.message);
+        
+        // Reset button state
+        confirmDelete.disabled = false;
+        confirmDelete.textContent = 'Delete';
+      }
+    }
+    
+    deleteModal.classList.add('hidden');
+  });
+  
+  // Close modal if clicking outside
+  deleteModal.addEventListener('click', function(e) {
+    if (e.target === deleteModal) {
+      deleteModal.classList.add('hidden');
+      formIdToDelete = null;
+    }
+  });
+</script>
+` %>
+
+<%- scripts %> 

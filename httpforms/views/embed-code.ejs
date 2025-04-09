@@ -1,0 +1,574 @@
+<div>
+  <div class="flex justify-between items-center mb-8">
+    <h1 class="text-3xl font-bold text-primary">Embed Form: <%= form.name %></h1>
+    <a href="/dashboard" class="btn-outline">Back to Dashboard</a>
+  </div>
+  
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+    <!-- Embed Instructions -->
+    <div class="lg:col-span-1">
+      <div class="bg-white rounded-lg shadow-md p-6">
+        <h2 class="text-xl font-bold text-primary mb-4">Instructions</h2>
+        
+        <div class="prose prose-sm text-gray-700">
+          <p>Follow these steps to embed your form on your website:</p>
+          
+          <ol class="list-decimal pl-5 space-y-2 my-4">
+            <li>Copy the HTML code below</li>
+            <li>Paste it into your website's HTML where you want the form to appear</li>
+            <li>The form will automatically load with your design and settings</li>
+          </ol>
+          
+          <p class="mt-4">Your form will be accessible at any domain by default. Use the domain settings to restrict which domains can use this form.</p>
+          
+          <div class="mt-4">
+            <h3 class="text-md font-bold mb-2">Domain Settings</h3>
+            <% if (form.domains && form.domains.length > 0) { %>
+              <p>This form is currently restricted to the following domains:</p>
+              <ul class="list-disc pl-5 space-y-1 mt-2">
+                <% form.domains.forEach(domain => { %>
+                  <li><%= domain %></li>
+                <% }); %>
+              </ul>
+            <% } else { %>
+              <p>This form can be used on any domain. For better security, you can restrict it to specific domains by editing the form.</p>
+              <a href="/form/edit/<%= form.id %>" class="text-primary hover:underline text-sm">Edit domain settings</a>
+            <% } %>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Embed Code -->
+    <div class="lg:col-span-2">
+      <div class="bg-white rounded-lg shadow-md p-6">
+        <h2 class="text-xl font-bold text-primary mb-4">Embed Code</h2>
+        
+        <div class="bg-gray-100 p-4 rounded-lg">
+          <pre class="text-sm overflow-x-auto"><code id="embed-code">&lt;!-- HTTPForms: <%= form.name %> --&gt;
+&lt;div id="httpform-<%= form.id %>"&gt;&lt;/div&gt;
+&lt;script&gt;
+  (function() {
+    const formContainer = document.getElementById('httpform-<%= form.id %>');
+    
+    // Fetch form configuration
+    fetch('<%= baseUrl %>/api/form/<%= form.id %>')
+      .then(response => response.json())
+      .then(data => {
+        if (data.success) {
+          const form = data.form;
+          
+          // Create form element
+          const formEl = document.createElement('form');
+          formEl.className = 'httpform-container';
+          formEl.innerHTML = '&lt;h3 style="margin-bottom: 16px; font-weight: bold; font-size: 20px;"&gt;' + form.name + '&lt;/h3&gt;';
+          
+          // Add fields
+          form.fields.forEach(field => {
+            const fieldContainer = document.createElement('div');
+            fieldContainer.style.marginBottom = '16px';
+            
+            // Add label
+            const label = document.createElement('label');
+            label.textContent = field.label + (field.required ? ' *' : '');
+            label.style.display = 'block';
+            label.style.marginBottom = '4px';
+            label.style.fontWeight = 'bold';
+            label.setAttribute('for', field.name);
+            
+            fieldContainer.appendChild(label);
+            
+            // Add input based on field type
+            let input;
+            
+            switch (field.type) {
+              case 'text':
+                input = document.createElement('input');
+                input.type = 'text';
+                break;
+              case 'email':
+                input = document.createElement('input');
+                input.type = 'email';
+                break;
+              case 'textarea':
+                input = document.createElement('textarea');
+                input.rows = 4;
+                break;
+              case 'select':
+                input = document.createElement('select');
+                
+                if (!field.required) {
+                  const placeholderOption = document.createElement('option');
+                  placeholderOption.value = '';
+                  placeholderOption.textContent = 'Please select';
+                  input.appendChild(placeholderOption);
+                }
+                
+                field.options.forEach(option => {
+                  const optionEl = document.createElement('option');
+                  optionEl.value = option;
+                  optionEl.textContent = option;
+                  input.appendChild(optionEl);
+                });
+                break;
+              case 'checkbox':
+                fieldContainer.removeChild(label);
+                
+                const checkboxContainer = document.createElement('div');
+                checkboxContainer.style.marginBottom = '8px';
+                checkboxContainer.innerHTML = '&lt;div style="font-weight: bold; margin-bottom: 8px;"&gt;' + field.label + (field.required ? ' *' : '') + '&lt;/div&gt;';
+                
+                field.options.forEach((option, i) => {
+                  const optionContainer = document.createElement('div');
+                  optionContainer.style.display = 'flex';
+                  optionContainer.style.alignItems = 'center';
+                  optionContainer.style.marginBottom = '4px';
+                  
+                  const checkbox = document.createElement('input');
+                  checkbox.type = 'checkbox';
+                  checkbox.id = field.name + '_' + i;
+                  checkbox.name = field.name;
+                  checkbox.value = option;
+                  checkbox.required = field.required;
+                  checkbox.style.marginRight = '8px';
+                  
+                  const optionLabel = document.createElement('label');
+                  optionLabel.htmlFor = field.name + '_' + i;
+                  optionLabel.textContent = option;
+                  
+                  optionContainer.appendChild(checkbox);
+                  optionContainer.appendChild(optionLabel);
+                  checkboxContainer.appendChild(optionContainer);
+                });
+                
+                fieldContainer.appendChild(checkboxContainer);
+                input = null;
+                break;
+              case 'radio':
+                fieldContainer.removeChild(label);
+                
+                const radioContainer = document.createElement('div');
+                radioContainer.style.marginBottom = '8px';
+                radioContainer.innerHTML = '&lt;div style="font-weight: bold; margin-bottom: 8px;"&gt;' + field.label + (field.required ? ' *' : '') + '&lt;/div&gt;';
+                
+                field.options.forEach((option, i) => {
+                  const optionContainer = document.createElement('div');
+                  optionContainer.style.display = 'flex';
+                  optionContainer.style.alignItems = 'center';
+                  optionContainer.style.marginBottom = '4px';
+                  
+                  const radio = document.createElement('input');
+                  radio.type = 'radio';
+                  radio.id = field.name + '_' + i;
+                  radio.name = field.name;
+                  radio.value = option;
+                  radio.required = field.required;
+                  if (i === 0 && field.required) radio.checked = true;
+                  radio.style.marginRight = '8px';
+                  
+                  const optionLabel = document.createElement('label');
+                  optionLabel.htmlFor = field.name + '_' + i;
+                  optionLabel.textContent = option;
+                  
+                  optionContainer.appendChild(radio);
+                  optionContainer.appendChild(optionLabel);
+                  radioContainer.appendChild(optionContainer);
+                });
+                
+                fieldContainer.appendChild(radioContainer);
+                input = null;
+                break;
+            }
+            
+            if (input) {
+              input.name = field.name;
+              input.id = field.name;
+              input.placeholder = field.placeholder || '';
+              input.required = field.required;
+              input.style.width = '100%';
+              input.style.padding = '8px';
+              input.style.border = '1px solid #ccc';
+              input.style.borderRadius = '4px';
+              
+              fieldContainer.appendChild(input);
+            }
+            
+            formEl.appendChild(fieldContainer);
+          });
+          
+          // Add submit button
+          const submitButton = document.createElement('button');
+          submitButton.type = 'submit';
+          submitButton.textContent = 'Submit';
+          submitButton.style.backgroundColor = '#0a192f';
+          submitButton.style.color = 'white';
+          submitButton.style.padding = '8px 16px';
+          submitButton.style.border = 'none';
+          submitButton.style.borderRadius = '4px';
+          submitButton.style.cursor = 'pointer';
+          submitButton.style.fontSize = '16px';
+          
+          formEl.appendChild(submitButton);
+          
+          // Form submission
+          formEl.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            // Disable form while submitting
+            submitButton.disabled = true;
+            submitButton.textContent = 'Submitting...';
+            
+            // Collect form data
+            const formData = {};
+            const formElements = Array.from(formEl.elements);
+            
+            formElements.forEach(element => {
+              if (element.name && element.name !== '' && element.tagName !== 'BUTTON') {
+                if (element.type === 'checkbox') {
+                  if (element.checked) {
+                    if (!formData[element.name]) {
+                      formData[element.name] = [];
+                    }
+                    formData[element.name].push(element.value);
+                  }
+                } else if (element.type === 'radio') {
+                  if (element.checked) {
+                    formData[element.name] = element.value;
+                  }
+                } else {
+                  formData[element.name] = element.value;
+                }
+              }
+            });
+            
+            // Submit form data
+            fetch('<%= baseUrl %>/api/submit/<%= form.id %>', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify(formData)
+            })
+              .then(response => response.json())
+              .then(result => {
+                if (result.success) {
+                  // Show success message
+                  formEl.innerHTML = '&lt;div style="text-align: center; padding: 20px;"&gt;' +
+                    '&lt;svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#4CAF50" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"&gt;' +
+                    '&lt;path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"&gt;&lt;/path&gt;' +
+                    '&lt;polyline points="22 4 12 14.01 9 11.01"&gt;&lt;/polyline&gt;' +
+                    '&lt;/svg&gt;' +
+                    '&lt;h3 style="font-size: 24px; font-weight: bold; margin: 16px 0;"&gt;Thank You!&lt;/h3&gt;' +
+                    '&lt;p&gt;Your submission has been received.&lt;/p&gt;' +
+                    '&lt;/div&gt;';
+                } else {
+                  // Show error message
+                  submitButton.disabled = false;
+                  submitButton.textContent = 'Submit';
+                  alert('Error: ' + (result.message || 'Failed to submit form. Please try again.'));
+                }
+              })
+              .catch(error => {
+                submitButton.disabled = false;
+                submitButton.textContent = 'Submit';
+                alert('Error: Failed to submit form. Please try again.');
+                console.error('Form submission error:', error);
+              });
+          });
+          
+          // Add some basic styles
+          const style = document.createElement('style');
+          style.textContent = 
+            ".httpform-container {" +
+            "  font-family: -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, Helvetica, Arial, sans-serif;" +
+            "  max-width: 500px;" +
+            "  margin: 0 auto;" +
+            "  padding: 20px;" +
+            "  background-color: #f9f9f9;" +
+            "  border-radius: 8px;" +
+            "  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);" +
+            "}" +
+            "" +
+            ".httpform-container button:hover {" +
+            "  background-color: #172a46;" +
+            "}";
+          
+          // Add form and styles to container
+          formContainer.appendChild(style);
+          formContainer.appendChild(formEl);
+        } else {
+          formContainer.innerHTML = '&lt;div style="color: red;"&gt;Error: ' + data.message + '&lt;/div&gt;';
+        }
+      })
+      .catch(error => {
+        formContainer.innerHTML = '&lt;div style="color: red;"&gt;Error: Failed to load form. Please check if the form ID is correct.&lt;/div&gt;';
+        console.error('HTTPForms error:', error);
+      });
+  })();
+&lt;/script&gt;</code></pre>
+        </div>
+        
+        <div class="mt-4 flex flex-col sm:flex-row justify-between">
+          <button id="copy-code-btn" class="btn-primary mb-2 sm:mb-0">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 inline-block mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+            </svg>
+            Copy Code
+          </button>
+          
+          <a href="/form/edit/<%= form.id %>" class="btn-outline text-center">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 inline-block mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+            </svg>
+            Edit Form
+          </a>
+        </div>
+      </div>
+      
+      <!-- Preview -->
+      <div class="mt-8 bg-white rounded-lg shadow-md p-6">
+        <h2 class="text-xl font-bold text-primary mb-4">Form Preview</h2>
+        
+        <div id="preview-container" class="border border-gray-200 rounded-lg p-6">
+          <!-- Preview will be inserted here -->
+          <div class="text-center py-10">
+            <div class="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-primary mx-auto"></div>
+            <p class="mt-4 text-gray-500">Loading preview...</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<% const scripts = `
+<script>
+  // Copy code button functionality
+  const copyCodeBtn = document.getElementById('copy-code-btn');
+  const embedCode = document.getElementById('embed-code');
+  
+  copyCodeBtn.addEventListener('click', function() {
+    // Create a textarea element with the code content
+    const textarea = document.createElement('textarea');
+    textarea.value = embedCode.textContent;
+    document.body.appendChild(textarea);
+    
+    // Select and copy the text
+    textarea.select();
+    document.execCommand('copy');
+    
+    // Remove the temporary textarea
+    document.body.removeChild(textarea);
+    
+    // Change button text temporarily
+    const originalText = copyCodeBtn.innerHTML;
+    copyCodeBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 inline-block mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg> Copied!';
+    
+    setTimeout(function() {
+      copyCodeBtn.innerHTML = originalText;
+    }, 2000);
+  });
+  
+  // Load form preview
+  document.addEventListener('DOMContentLoaded', function() {
+    const previewContainer = document.getElementById('preview-container');
+    
+    // Execute the embed code in a controlled way for preview
+    fetch('${baseUrl}/api/form/${form.id}')
+      .then(response => response.json())
+      .then(data => {
+        if (data.success) {
+          const form = data.form;
+          
+          // Create form element
+          const formEl = document.createElement('form');
+          formEl.className = 'httpform-container';
+          formEl.innerHTML = '<h3 style="margin-bottom: 16px; font-weight: bold; font-size: 20px;">' + form.name + '</h3>';
+          
+          // Add fields
+          form.fields.forEach(field => {
+            const fieldContainer = document.createElement('div');
+            fieldContainer.style.marginBottom = '16px';
+            
+            // Add label
+            const label = document.createElement('label');
+            label.textContent = field.label + (field.required ? ' *' : '');
+            label.style.display = 'block';
+            label.style.marginBottom = '4px';
+            label.style.fontWeight = 'bold';
+            label.setAttribute('for', 'preview_' + field.name);
+            
+            fieldContainer.appendChild(label);
+            
+            // Add input based on field type
+            let input;
+            
+            switch (field.type) {
+              case 'text':
+                input = document.createElement('input');
+                input.type = 'text';
+                break;
+              case 'email':
+                input = document.createElement('input');
+                input.type = 'email';
+                break;
+              case 'textarea':
+                input = document.createElement('textarea');
+                input.rows = 4;
+                break;
+              case 'select':
+                input = document.createElement('select');
+                
+                if (!field.required) {
+                  const placeholderOption = document.createElement('option');
+                  placeholderOption.value = '';
+                  placeholderOption.textContent = 'Please select';
+                  input.appendChild(placeholderOption);
+                }
+                
+                field.options.forEach(option => {
+                  const optionEl = document.createElement('option');
+                  optionEl.value = option;
+                  optionEl.textContent = option;
+                  input.appendChild(optionEl);
+                });
+                break;
+              case 'checkbox':
+                fieldContainer.removeChild(label);
+                
+                const checkboxContainer = document.createElement('div');
+                checkboxContainer.style.marginBottom = '8px';
+                checkboxContainer.innerHTML = '<div style="font-weight: bold; margin-bottom: 8px;">' + field.label + (field.required ? ' *' : '') + '</div>';
+                
+                field.options.forEach((option, i) => {
+                  const optionContainer = document.createElement('div');
+                  optionContainer.style.display = 'flex';
+                  optionContainer.style.alignItems = 'center';
+                  optionContainer.style.marginBottom = '4px';
+                  
+                  const checkbox = document.createElement('input');
+                  checkbox.type = 'checkbox';
+                  checkbox.id = 'preview_' + field.name + '_' + i;
+                  checkbox.name = 'preview_' + field.name;
+                  checkbox.value = option;
+                  checkbox.required = field.required;
+                  checkbox.style.marginRight = '8px';
+                  
+                  const optionLabel = document.createElement('label');
+                  optionLabel.htmlFor = 'preview_' + field.name + '_' + i;
+                  optionLabel.textContent = option;
+                  
+                  optionContainer.appendChild(checkbox);
+                  optionContainer.appendChild(optionLabel);
+                  checkboxContainer.appendChild(optionContainer);
+                });
+                
+                fieldContainer.appendChild(checkboxContainer);
+                input = null;
+                break;
+              case 'radio':
+                fieldContainer.removeChild(label);
+                
+                const radioContainer = document.createElement('div');
+                radioContainer.style.marginBottom = '8px';
+                radioContainer.innerHTML = '<div style="font-weight: bold; margin-bottom: 8px;">' + field.label + (field.required ? ' *' : '') + '</div>';
+                
+                field.options.forEach((option, i) => {
+                  const optionContainer = document.createElement('div');
+                  optionContainer.style.display = 'flex';
+                  optionContainer.style.alignItems = 'center';
+                  optionContainer.style.marginBottom = '4px';
+                  
+                  const radio = document.createElement('input');
+                  radio.type = 'radio';
+                  radio.id = 'preview_' + field.name + '_' + i;
+                  radio.name = 'preview_' + field.name;
+                  radio.value = option;
+                  radio.required = field.required;
+                  if (i === 0 && field.required) radio.checked = true;
+                  radio.style.marginRight = '8px';
+                  
+                  const optionLabel = document.createElement('label');
+                  optionLabel.htmlFor = 'preview_' + field.name + '_' + i;
+                  optionLabel.textContent = option;
+                  
+                  optionContainer.appendChild(radio);
+                  optionContainer.appendChild(optionLabel);
+                  radioContainer.appendChild(optionContainer);
+                });
+                
+                fieldContainer.appendChild(radioContainer);
+                input = null;
+                break;
+            }
+            
+            if (input) {
+              input.name = 'preview_' + field.name;
+              input.id = 'preview_' + field.name;
+              input.placeholder = field.placeholder || '';
+              input.required = field.required;
+              input.style.width = '100%';
+              input.style.padding = '8px';
+              input.style.border = '1px solid #ccc';
+              input.style.borderRadius = '4px';
+              
+              fieldContainer.appendChild(input);
+            }
+            
+            formEl.appendChild(fieldContainer);
+          });
+          
+          // Add submit button
+          const submitButton = document.createElement('button');
+          submitButton.type = 'submit';
+          submitButton.textContent = 'Submit';
+          submitButton.style.backgroundColor = '#0a192f';
+          submitButton.style.color = 'white';
+          submitButton.style.padding = '8px 16px';
+          submitButton.style.border = 'none';
+          submitButton.style.borderRadius = '4px';
+          submitButton.style.cursor = 'pointer';
+          submitButton.style.fontSize = '16px';
+          
+          formEl.appendChild(submitButton);
+          
+          // Prevent actual form submission in preview
+          formEl.addEventListener('submit', function(e) {
+            e.preventDefault();
+            alert('This is just a preview. The form will work when embedded on your website.');
+          });
+          
+          // Add some basic styles
+          const style = document.createElement('style');
+          style.textContent = 
+            ".httpform-container {" +
+            "  font-family: -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, Helvetica, Arial, sans-serif;" +
+            "  max-width: 500px;" +
+            "  margin: 0 auto;" +
+            "  padding: 20px;" +
+            "  background-color: #f9f9f9;" +
+            "  border-radius: 8px;" +
+            "  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);" +
+            "}" +
+            "" +
+            ".httpform-container button:hover {" +
+            "  background-color: #172a46;" +
+            "}";
+          
+          // Clear loading indicator and add form to preview
+          previewContainer.innerHTML = '';
+          previewContainer.appendChild(style);
+          previewContainer.appendChild(formEl);
+        } else {
+          previewContainer.innerHTML = '<div class="text-center text-red-500 py-4">Error loading form preview: ' + data.message + '</div>';
+        }
+      })
+      .catch(error => {
+        previewContainer.innerHTML = '<div class="text-center text-red-500 py-4">Error loading form preview. Please try refreshing the page.</div>';
+        console.error('Preview error:', error);
+      });
+  });
+</script>
+` %>
+
+<%- scripts %> 

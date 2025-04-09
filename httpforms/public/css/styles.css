@@ -1,0 +1,21 @@
+/* Base styles */
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+/* Custom button styles */
+.custom-btn {
+  display: inline-block;
+  padding: 0.5rem 1rem;
+  border-radius: 0.25rem;
+  font-weight: bold;
+  text-align: center;
+  transition: all 0.2s ease-in-out;
+}
+
+/* Form input focus styles */
+.form-input:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(10, 25, 47, 0.2);
+  border-color: #0a192f;
+} 

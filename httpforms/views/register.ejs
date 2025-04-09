@@ -1,0 +1,56 @@
+<div class="flex items-center justify-center min-h-[calc(100vh-20rem)]">
+  <div class="w-full max-w-md">
+    <div class="bg-white rounded-lg shadow-md overflow-hidden">
+      <div class="bg-primary p-6">
+        <h2 class="text-2xl font-bold text-center text-white">Create your account</h2>
+      </div>
+      
+      <div class="p-6">
+        <% if (locals.error) { %>
+          <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4" role="alert">
+            <span class="block sm:inline"><%= error %></span>
+          </div>
+        <% } %>
+        
+        <form action="/register" method="POST">
+          <div class="mb-4">
+            <label for="name" class="form-label">Name</label>
+            <input type="text" id="name" name="name" class="form-input" required>
+          </div>
+          
+          <div class="mb-4">
+            <label for="email" class="form-label">Email address</label>
+            <input type="email" id="email" name="email" class="form-input" required>
+          </div>
+          
+          <div class="mb-4">
+            <label for="password" class="form-label">Password</label>
+            <input type="password" id="password" name="password" class="form-input" required minlength="8">
+            <p class="mt-1 text-xs text-gray-500">Must be at least 8 characters</p>
+          </div>
+          
+          <div class="mb-6">
+            <label for="confirmPassword" class="form-label">Confirm Password</label>
+            <input type="password" id="confirmPassword" name="confirmPassword" class="form-input" required minlength="8">
+          </div>
+          
+          <div class="flex items-center mb-6">
+            <input id="terms" name="terms" type="checkbox" class="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded" required>
+            <label for="terms" class="ml-2 block text-sm text-gray-700">
+              I agree to the <a href="#" class="text-primary hover:underline">Terms of Service</a> and <a href="#" class="text-primary hover:underline">Privacy Policy</a>
+            </label>
+          </div>
+          
+          <button type="submit" class="btn-primary w-full">Create Account</button>
+        </form>
+        
+        <div class="mt-6 text-center">
+          <p class="text-sm text-gray-600">
+            Already have an account?
+            <a href="/login" class="font-medium text-primary hover:text-primary-dark">Sign in</a>
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div> 

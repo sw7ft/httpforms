@@ -1,0 +1,302 @@
+<div>
+  <div class="flex justify-between items-center mb-8">
+    <h1 class="text-3xl font-bold text-primary">Domain Management</h1>
+    <button id="add-domain-btn" class="btn-accent">Add Domain</button>
+  </div>
+  
+  <% if (domains && domains.length > 0) { %>
+    <div class="grid gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
+      <% domains.forEach(domain => { %>
+        <div class="bg-white rounded-lg shadow-md overflow-hidden border border-gray-200">
+          <div class="p-6">
+            <div class="flex justify-between items-center mb-4">
+              <h2 class="text-xl font-bold text-primary"><%= domain.domain %></h2>
+              <span class="text-xs text-gray-500">
+                Created: <%= new Date(domain.createdAt).toLocaleDateString() %>
+              </span>
+            </div>
+            
+            <div class="mb-4">
+              <p class="text-sm text-gray-600">
+                <strong>Allowed Forms:</strong>
+                <% 
+                  if (domain.formIds && domain.formIds.length > 0) {
+                    const allowedForms = forms.filter(form => domain.formIds.includes(form.id));
+                    const formNames = allowedForms.map(form => form.name);
+                %>
+                  <%= formNames.join(', ') %>
+                <% } else { %>
+                  No forms assigned
+                <% } %>
+              </p>
+            </div>
+            
+            <div class="flex flex-wrap gap-2 mt-4">
+              <button 
+                class="edit-domain-btn btn-outline text-sm py-1"
+                data-domain-id="<%= domain.id %>"
+                data-domain-name="<%= domain.domain %>"
+                data-form-ids="<%= domain.formIds ? domain.formIds.join(',') : '' %>">
+                Edit
+              </button>
+              <button 
+                class="delete-domain-btn text-sm py-1 px-4 rounded text-white bg-red-500 hover:bg-red-600 transition-colors"
+                data-domain-id="<%= domain.id %>"
+                data-domain-name="<%= domain.domain %>">
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      <% }); %>
+    </div>
+  <% } else { %>
+    <div class="bg-white rounded-lg shadow-md p-8 text-center">
+      <div class="flex flex-col items-center">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 text-gray-400 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
+        </svg>
+        <h3 class="text-xl font-medium text-gray-900 mb-2">No domains yet</h3>
+        <p class="text-gray-600 mb-6">Add domains to control which forms can be used on specific websites.</p>
+        <button id="first-domain-btn" class="btn-accent">Add First Domain</button>
+      </div>
+    </div>
+  <% } %>
+</div>
+
+<!-- Domain Modal -->
+<div id="domain-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+  <div class="bg-white rounded-lg max-w-lg w-full p-6">
+    <div class="flex justify-between items-center mb-4">
+      <h3 class="text-xl font-bold text-primary" id="domain-modal-title">Add Domain</h3>
+      <button id="close-domain-modal" class="text-gray-500 hover:text-gray-800">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+        </svg>
+      </button>
+    </div>
+    
+    <form id="domain-form" class="space-y-4">
+      <input type="hidden" id="domain-id" value="">
+      
+      <div>
+        <label for="domain-name" class="form-label">Domain Name</label>
+        <input type="text" id="domain-name" class="form-input" placeholder="example.com" required>
+        <p class="mt-1 text-xs text-gray-500">Enter the domain without http:// or https://</p>
+      </div>
+      
+      <div>
+        <label class="form-label">Allowed Forms</label>
+        <div class="mt-2 space-y-2 max-h-60 overflow-y-auto border border-gray-200 rounded-md p-3">
+          <% if (forms && forms.length > 0) { %>
+            <% forms.forEach(form => { %>
+              <div class="flex items-center">
+                <input type="checkbox" id="form-<%= form.id %>" name="form-ids" value="<%= form.id %>" class="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded">
+                <label for="form-<%= form.id %>" class="ml-2 block text-sm text-gray-700">
+                  <%= form.name %> 
+                  <span class="text-xs text-gray-500">
+                    (Created by: <%= form.userId === user.id ? 'You' : 'Other User' %>)
+                  </span>
+                </label>
+              </div>
+            <% }); %>
+          <% } else { %>
+            <p class="text-sm text-gray-500">No forms available. Create forms first.</p>
+          <% } %>
+        </div>
+      </div>
+      
+      <div class="flex justify-end space-x-4 mt-6">
+        <button type="button" id="cancel-domain-btn" class="btn-outline">Cancel</button>
+        <button type="submit" id="save-domain-btn" class="btn-primary">Save</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Delete Domain Modal -->
+<div id="delete-domain-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+  <div class="bg-white rounded-lg max-w-md w-full p-6">
+    <h3 class="text-xl font-bold text-primary mb-4">Delete Domain</h3>
+    <p class="text-gray-600 mb-6">Are you sure you want to delete "<span id="domain-name-display"></span>"? This action cannot be undone.</p>
+    <div class="flex justify-end space-x-4">
+      <button id="cancel-delete-domain" class="btn-outline">Cancel</button>
+      <button id="confirm-delete-domain" class="text-white bg-red-500 hover:bg-red-600 py-2 px-4 rounded transition-colors">Delete</button>
+    </div>
+  </div>
+</div>
+
+<% const scripts = `
+<script>
+  // Domain management functionality
+  const domainModal = document.getElementById('domain-modal');
+  const domainModalTitle = document.getElementById('domain-modal-title');
+  const closeDomainModal = document.getElementById('close-domain-modal');
+  const cancelDomainBtn = document.getElementById('cancel-domain-btn');
+  const saveDomainBtn = document.getElementById('save-domain-btn');
+  const domainForm = document.getElementById('domain-form');
+  const domainIdInput = document.getElementById('domain-id');
+  const domainNameInput = document.getElementById('domain-name');
+  
+  // Add domain buttons
+  const addDomainBtn = document.getElementById('add-domain-btn');
+  const firstDomainBtn = document.getElementById('first-domain-btn');
+  
+  if (addDomainBtn) {
+    addDomainBtn.addEventListener('click', openAddDomainModal);
+  }
+  
+  if (firstDomainBtn) {
+    firstDomainBtn.addEventListener('click', openAddDomainModal);
+  }
+  
+  function openAddDomainModal() {
+    domainModalTitle.textContent = 'Add Domain';
+    domainIdInput.value = '';
+    domainNameInput.value = '';
+    
+    // Uncheck all form checkboxes
+    document.querySelectorAll('input[name="form-ids"]').forEach(checkbox => {
+      checkbox.checked = false;
+    });
+    
+    domainModal.classList.remove('hidden');
+  }
+  
+  // Edit domain buttons
+  const editDomainBtns = document.querySelectorAll('.edit-domain-btn');
+  editDomainBtns.forEach(button => {
+    button.addEventListener('click', function() {
+      const domainId = this.dataset.domainId;
+      const domainName = this.dataset.domainName;
+      const formIds = this.dataset.formIds ? this.dataset.formIds.split(',') : [];
+      
+      domainModalTitle.textContent = 'Edit Domain';
+      domainIdInput.value = domainId;
+      domainNameInput.value = domainName;
+      
+      // Check the form checkboxes for selected forms
+      document.querySelectorAll('input[name="form-ids"]').forEach(checkbox => {
+        checkbox.checked = formIds.includes(checkbox.value);
+      });
+      
+      domainModal.classList.remove('hidden');
+    });
+  });
+  
+  // Close modal buttons
+  closeDomainModal.addEventListener('click', function() {
+    domainModal.classList.add('hidden');
+  });
+  
+  cancelDomainBtn.addEventListener('click', function() {
+    domainModal.classList.add('hidden');
+  });
+  
+  // Close modal if clicking outside
+  domainModal.addEventListener('click', function(e) {
+    if (e.target === domainModal) {
+      domainModal.classList.add('hidden');
+    }
+  });
+  
+  // Save domain
+  domainForm.addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const domainId = domainIdInput.value;
+    const domainName = domainNameInput.value.trim();
+    
+    if (!domainName) {
+      alert('Please enter a domain name');
+      return;
+    }
+    
+    // Get selected form IDs
+    const formIds = Array.from(document.querySelectorAll('input[name="form-ids"]:checked')).map(checkbox => checkbox.value);
+    
+    try {
+      const response = await fetch('/domain/save', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          id: domainId,
+          domain: domainName,
+          formIds
+        })
+      });
+      
+      const result = await response.json();
+      
+      if (result.success) {
+        window.location.reload();
+      } else {
+        alert('Failed to save domain: ' + result.message);
+      }
+    } catch (error) {
+      console.error('Error saving domain:', error);
+      alert('An error occurred while saving the domain.');
+    }
+  });
+  
+  // Delete domain functionality
+  const deleteDomainBtns = document.querySelectorAll('.delete-domain-btn');
+  const deleteDomainModal = document.getElementById('delete-domain-modal');
+  const cancelDeleteDomain = document.getElementById('cancel-delete-domain');
+  const confirmDeleteDomain = document.getElementById('confirm-delete-domain');
+  const domainNameDisplay = document.getElementById('domain-name-display');
+  
+  let domainIdToDelete = null;
+  
+  deleteDomainBtns.forEach(button => {
+    button.addEventListener('click', function() {
+      domainIdToDelete = this.dataset.domainId;
+      domainNameDisplay.textContent = this.dataset.domainName;
+      deleteDomainModal.classList.remove('hidden');
+    });
+  });
+  
+  cancelDeleteDomain.addEventListener('click', function() {
+    deleteDomainModal.classList.add('hidden');
+    domainIdToDelete = null;
+  });
+  
+  confirmDeleteDomain.addEventListener('click', async function() {
+    if (domainIdToDelete) {
+      try {
+        const response = await fetch(\`/domain/delete/\${domainIdToDelete}\`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+          window.location.reload();
+        } else {
+          alert('Failed to delete domain: ' + result.message);
+        }
+      } catch (error) {
+        console.error('Error deleting domain:', error);
+        alert('An error occurred while deleting the domain.');
+      }
+    }
+    
+    deleteDomainModal.classList.add('hidden');
+  });
+  
+  // Close modal if clicking outside
+  deleteDomainModal.addEventListener('click', function(e) {
+    if (e.target === deleteDomainModal) {
+      deleteDomainModal.classList.add('hidden');
+      domainIdToDelete = null;
+    }
+  });
+</script>
+` %>
+
+<%- scripts %> 

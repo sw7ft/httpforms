@@ -1,0 +1,426 @@
+<div>
+  <div class="flex justify-between items-center mb-8">
+    <h1 class="text-3xl font-bold text-primary"><%= form.id ? 'Edit Form' : 'Create New Form' %></h1>
+    <a href="/dashboard" class="btn-outline">Back to Dashboard</a>
+  </div>
+  
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+    <!-- Form Builder Controls -->
+    <div class="lg:col-span-1">
+      <div class="bg-white rounded-lg shadow-md p-6">
+        <h2 class="text-xl font-bold text-primary mb-4">Form Details</h2>
+        
+        <div class="mb-6">
+          <label for="form-name" class="form-label">Form Name</label>
+          <input type="text" id="form-name" class="form-input" value="<%= form.name || '' %>" placeholder="Contact Form">
+        </div>
+        
+        <div class="mb-6">
+          <label for="allowed-domains" class="form-label">Allowed Domains</label>
+          <input type="text" id="allowed-domains" class="form-input" value="<%= form.domains ? form.domains.join(', ') : '' %>" placeholder="example.com, subdomain.example.org">
+          <p class="mt-1 text-xs text-gray-500">Leave empty to allow all domains, or specify comma-separated domains</p>
+        </div>
+        
+        <h3 class="text-lg font-bold text-primary mb-3 mt-8">Add Fields</h3>
+        <div class="space-y-2">
+          <button data-type="text" class="add-field-btn btn-outline w-full justify-center mb-2">
+            Text Field
+          </button>
+          <button data-type="email" class="add-field-btn btn-outline w-full justify-center mb-2">
+            Email Field
+          </button>
+          <button data-type="textarea" class="add-field-btn btn-outline w-full justify-center mb-2">
+            Text Area
+          </button>
+          <button data-type="select" class="add-field-btn btn-outline w-full justify-center mb-2">
+            Dropdown
+          </button>
+          <button data-type="checkbox" class="add-field-btn btn-outline w-full justify-center mb-2">
+            Checkbox
+          </button>
+          <button data-type="radio" class="add-field-btn btn-outline w-full justify-center mb-2">
+            Radio Buttons
+          </button>
+        </div>
+        
+        <div class="mt-8">
+          <button id="save-form-btn" class="btn-primary w-full">Save Form</button>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Form Preview -->
+    <div class="lg:col-span-2">
+      <div class="bg-white rounded-lg shadow-md p-6">
+        <h2 class="text-xl font-bold text-primary mb-4">Form Preview</h2>
+        
+        <div id="form-preview" class="border border-gray-200 rounded-lg p-6 min-h-[400px]">
+          <div id="form-fields" class="space-y-4">
+            <!-- Fields will be added here dynamically -->
+            <% if (form.fields && form.fields.length > 0) { %>
+              <!-- Fields will be loaded by JavaScript -->
+            <% } else { %>
+              <div class="text-center py-10 text-gray-500">
+                Add fields from the panel on the left to build your form
+              </div>
+            <% } %>
+          </div>
+          
+          <div class="mt-6">
+            <button type="button" class="btn-primary w-full">Submit</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Field Settings Modal -->
+<div id="field-settings-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+  <div class="bg-white rounded-lg max-w-lg w-full p-6">
+    <div class="flex justify-between items-center mb-4">
+      <h3 class="text-xl font-bold text-primary">Field Settings</h3>
+      <button id="close-field-settings" class="text-gray-500 hover:text-gray-800">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+        </svg>
+      </button>
+    </div>
+    
+    <div id="field-settings-content" class="space-y-4">
+      <!-- Will be populated dynamically -->
+    </div>
+    
+    <div class="flex justify-end space-x-4 mt-6">
+      <button id="delete-field-btn" class="text-white bg-red-500 hover:bg-red-600 py-2 px-4 rounded transition-colors">Delete Field</button>
+      <button id="save-field-settings" class="btn-primary">Save Changes</button>
+    </div>
+  </div>
+</div>
+
+<% /* Define scripts to be included in the layout */ %>
+<% scripts = `
+<script>
+  // Form builder functionality
+  const formFields = [];
+  let selectedFieldIndex = -1;
+  
+  // Initialize form with existing fields if editing
+  const formData = ${JSON.stringify(form)};
+  
+  if (formData.fields && formData.fields.length > 0) {
+    formData.fields.forEach(field => {
+      formFields.push(field);
+    });
+    renderFormFields();
+  }
+  
+  // Add field button handlers
+  document.querySelectorAll('.add-field-btn').forEach(button => {
+    button.addEventListener('click', function() {
+      const fieldType = this.dataset.type;
+      
+      const newField = {
+        id: generateId(),
+        type: fieldType,
+        label: getDefaultLabelForType(fieldType),
+        name: getDefaultNameForType(fieldType),
+        placeholder: '',
+        required: false,
+        options: fieldType === 'select' || fieldType === 'radio' ? ['Option 1', 'Option 2'] : []
+      };
+      
+      formFields.push(newField);
+      renderFormFields();
+      openFieldSettings(formFields.length - 1);
+    });
+  });
+  
+  // Save form
+  document.getElementById('save-form-btn').addEventListener('click', async function() {
+    const formName = document.getElementById('form-name').value.trim();
+    const allowedDomains = document.getElementById('allowed-domains').value.trim();
+    
+    if (!formName) {
+      alert('Please enter a form name');
+      return;
+    }
+    
+    if (formFields.length === 0) {
+      alert('Please add at least one field to your form');
+      return;
+    }
+    
+    try {
+      const response = await fetch('/form/save', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          id: formData.id || '',
+          name: formName,
+          fields: JSON.stringify(formFields),
+          domains: allowedDomains
+        })
+      });
+      
+      const result = await response.json();
+      
+      if (result.success) {
+        window.location.href = result.redirect || '/dashboard';
+      } else {
+        alert('Failed to save form: ' + result.message);
+      }
+    } catch (error) {
+      console.error('Error saving form:', error);
+      alert('An error occurred while saving the form.');
+    }
+  });
+  
+  // Field settings modal functionality
+  const fieldSettingsModal = document.getElementById('field-settings-modal');
+  const fieldSettingsContent = document.getElementById('field-settings-content');
+  const closeFieldSettings = document.getElementById('close-field-settings');
+  const saveFieldSettings = document.getElementById('save-field-settings');
+  const deleteFieldBtn = document.getElementById('delete-field-btn');
+  
+  function openFieldSettings(index) {
+    selectedFieldIndex = index;
+    const field = formFields[index];
+    
+    // Generate field settings HTML based on field type
+    let settingsHTML = \`
+      <div>
+        <label class="form-label">Field Label</label>
+        <input type="text" id="field-label" class="form-input" value="\${field.label}">
+      </div>
+      <div>
+        <label class="form-label">Field Name</label>
+        <input type="text" id="field-name" class="form-input" value="\${field.name}">
+      </div>
+      <div>
+        <label class="form-label">Placeholder</label>
+        <input type="text" id="field-placeholder" class="form-input" value="\${field.placeholder || ''}">
+      </div>
+      <div class="flex items-center">
+        <input type="checkbox" id="field-required" class="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded" \${field.required ? 'checked' : ''}>
+        <label for="field-required" class="ml-2 block text-sm text-gray-700">Required field</label>
+      </div>
+    \`;
+    
+    // Add options for select, checkbox, or radio fields
+    if (field.type === 'select' || field.type === 'radio' || field.type === 'checkbox') {
+      settingsHTML += \`
+        <div class="mt-4">
+          <label class="form-label">Options</label>
+          <div id="field-options" class="space-y-2">
+      \`;
+      
+      field.options.forEach((option, i) => {
+        settingsHTML += \`
+          <div class="flex items-center">
+            <input type="text" class="form-input option-value" value="\${option}">
+            <button type="button" class="ml-2 text-red-500 remove-option" data-index="\${i}">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        \`;
+      });
+      
+      settingsHTML += \`
+          </div>
+          <button type="button" id="add-option" class="mt-2 text-sm text-primary font-medium hover:underline">+ Add Option</button>
+        </div>
+      \`;
+    }
+    
+    fieldSettingsContent.innerHTML = settingsHTML;
+    fieldSettingsModal.classList.remove('hidden');
+    
+    // Add event listener to add option button
+    const addOptionBtn = document.getElementById('add-option');
+    if (addOptionBtn) {
+      addOptionBtn.addEventListener('click', function() {
+        const optionsContainer = document.getElementById('field-options');
+        const newOptionIndex = document.querySelectorAll('.option-value').length;
+        const optionWrapper = document.createElement('div');
+        optionWrapper.className = 'flex items-center';
+        optionWrapper.innerHTML = \`
+          <input type="text" class="form-input option-value" value="Option \${newOptionIndex + 1}">
+          <button type="button" class="ml-2 text-red-500 remove-option" data-index="\${newOptionIndex}">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        \`;
+        optionsContainer.appendChild(optionWrapper);
+        
+        // Add event listener to the new remove button
+        optionWrapper.querySelector('.remove-option').addEventListener('click', function() {
+          optionWrapper.remove();
+        });
+      });
+    }
+    
+    // Add event listeners to remove option buttons
+    document.querySelectorAll('.remove-option').forEach(button => {
+      button.addEventListener('click', function() {
+        this.parentElement.remove();
+      });
+    });
+  }
+  
+  // Close field settings modal
+  closeFieldSettings.addEventListener('click', function() {
+    fieldSettingsModal.classList.add('hidden');
+    selectedFieldIndex = -1;
+  });
+  
+  // Close modal if clicking outside
+  fieldSettingsModal.addEventListener('click', function(e) {
+    if (e.target === fieldSettingsModal) {
+      fieldSettingsModal.classList.add('hidden');
+      selectedFieldIndex = -1;
+    }
+  });
+  
+  // Save field settings
+  saveFieldSettings.addEventListener('click', function() {
+    if (selectedFieldIndex >= 0) {
+      const field = formFields[selectedFieldIndex];
+      field.label = document.getElementById('field-label').value;
+      field.name = document.getElementById('field-name').value;
+      field.placeholder = document.getElementById('field-placeholder').value;
+      field.required = document.getElementById('field-required').checked;
+      
+      // Save options for select, checkbox, or radio fields
+      if (field.type === 'select' || field.type === 'radio' || field.type === 'checkbox') {
+        field.options = Array.from(document.querySelectorAll('.option-value')).map(input => input.value);
+      }
+      
+      renderFormFields();
+      fieldSettingsModal.classList.add('hidden');
+      selectedFieldIndex = -1;
+    }
+  });
+  
+  // Delete field
+  deleteFieldBtn.addEventListener('click', function() {
+    if (selectedFieldIndex >= 0) {
+      formFields.splice(selectedFieldIndex, 1);
+      renderFormFields();
+      fieldSettingsModal.classList.add('hidden');
+      selectedFieldIndex = -1;
+    }
+  });
+  
+  // Helper function to render the form fields
+  function renderFormFields() {
+    const formFieldsContainer = document.getElementById('form-fields');
+    formFieldsContainer.innerHTML = '';
+    
+    if (formFields.length === 0) {
+      formFieldsContainer.innerHTML = \`
+        <div class="text-center py-10 text-gray-500">
+          Add fields from the panel on the left to build your form
+        </div>
+      \`;
+      return;
+    }
+    
+    formFields.forEach((field, index) => {
+      const fieldElement = document.createElement('div');
+      fieldElement.className = 'field-wrapper border border-gray-200 rounded p-4 hover:border-primary cursor-pointer';
+      fieldElement.dataset.index = index;
+      
+      let fieldHTML = \`
+        <label class="form-label \${field.required ? 'font-bold' : ''}">\${field.label}\${field.required ? ' *' : ''}</label>
+      \`;
+      
+      switch (field.type) {
+        case 'text':
+          fieldHTML += \`<input type="text" class="form-input" placeholder="\${field.placeholder}" \${field.required ? 'required' : ''}>\`;
+          break;
+        case 'email':
+          fieldHTML += \`<input type="email" class="form-input" placeholder="\${field.placeholder}" \${field.required ? 'required' : ''}>\`;
+          break;
+        case 'textarea':
+          fieldHTML += \`<textarea class="form-input" rows="4" placeholder="\${field.placeholder}" \${field.required ? 'required' : ''}></textarea>\`;
+          break;
+        case 'select':
+          fieldHTML += \`<select class="form-input" \${field.required ? 'required' : ''}>\`;
+          if (!field.required) {
+            fieldHTML += \`<option value="">Please select</option>\`;
+          }
+          field.options.forEach(option => {
+            fieldHTML += \`<option value="\${option}">\${option}</option>\`;
+          });
+          fieldHTML += \`</select>\`;
+          break;
+        case 'checkbox':
+          field.options.forEach((option, i) => {
+            fieldHTML += \`
+              <div class="flex items-center mt-2">
+                <input type="checkbox" id="\${field.name}_\${i}" name="\${field.name}" value="\${option}" class="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded">
+                <label for="\${field.name}_\${i}" class="ml-2 block text-sm text-gray-700">\${option}</label>
+              </div>
+            \`;
+          });
+          break;
+        case 'radio':
+          field.options.forEach((option, i) => {
+            fieldHTML += \`
+              <div class="flex items-center mt-2">
+                <input type="radio" id="\${field.name}_\${i}" name="\${field.name}" value="\${option}" class="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded" \${i === 0 && field.required ? 'checked' : ''}>
+                <label for="\${field.name}_\${i}" class="ml-2 block text-sm text-gray-700">\${option}</label>
+              </div>
+            \`;
+          });
+          break;
+      }
+      
+      fieldElement.innerHTML = fieldHTML;
+      formFieldsContainer.appendChild(fieldElement);
+      
+      // Add click event to open field settings
+      fieldElement.addEventListener('click', function() {
+        openFieldSettings(parseInt(this.dataset.index));
+      });
+    });
+  }
+  
+  // Helper functions
+  function generateId() {
+    return Math.random().toString(36).substring(2, 15);
+  }
+  
+  function getDefaultLabelForType(type) {
+    switch (type) {
+      case 'text': return 'Text Field';
+      case 'email': return 'Email Address';
+      case 'textarea': return 'Message';
+      case 'select': return 'Select Option';
+      case 'checkbox': return 'Checkbox Options';
+      case 'radio': return 'Radio Options';
+      default: return 'Field';
+    }
+  }
+  
+  function getDefaultNameForType(type) {
+    switch (type) {
+      case 'text': return 'text_field';
+      case 'email': return 'email';
+      case 'textarea': return 'message';
+      case 'select': return 'select_option';
+      case 'checkbox': return 'checkbox_options';
+      case 'radio': return 'radio_options';
+      default: return 'field';
+    }
+  }
+</script>
+` %>
+
+<%- scripts %> 
