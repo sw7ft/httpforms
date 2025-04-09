@@ -6,5 +6,13 @@
     "password": "$2b$10$Jy9LZkOFf5HEDGn6rUwLR.nXkt0K.MvF9BX5WSzt7W9sdopXWxdzK",
     "isAdmin": true,
     "createdAt": "2025-04-08T16:13:40.060Z"
+  },
+  {
+    "id": "57a2150a-afc4-493c-8585-f7a415ab282f",
+    "name": "Matt Potter",
+    "email": "matt@swiftmedia.ca",
+    "password": "$2b$10$6u5fAReL.T9HCaW/D7Pm0OUVYmjzMHCtIcp33MRWf.cjhXts8KWs6",
+    "isAdmin": false,
+    "createdAt": "2025-04-09T04:12:03.704Z"
   }
 ]

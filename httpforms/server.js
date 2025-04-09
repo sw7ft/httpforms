@@ -510,7 +510,7 @@ app.post('/api/submit/:formId', (req, res) => {
           .join('');
         
         client.sendEmail({
-          From: 'contact@httpforms.com',
+          From: 'forms@swiftgrid.net',
           To: formOwner.email,
           Subject: `New submission for ${form.name}`,
           HtmlBody: `
