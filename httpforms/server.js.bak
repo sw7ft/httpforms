@@ -1,0 +1,1155 @@
+require('dotenv').config();
+const express = require('express');
+const session = require('express-session');
+const bodyParser = require('body-parser');
+const fs = require('fs');
+const path = require('path');
+const bcrypt = require('bcrypt');
+const { v4: uuidv4 } = require('uuid');
+const cors = require('cors');
+const helmet = require('helmet');
+const postmark = require('postmark');
+const expressLayouts = require('express-ejs-layouts');
+const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+const twilio = require('twilio')(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
+
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+// Subscription tiers and limits
+const SUBSCRIPTION_TIERS = {
+  FREE: 'free',
+  BASIC: 'basic',
+  PREMIUM: 'premium'
+};
+
+const SUBSCRIPTION_LIMITS = {
+  [SUBSCRIPTION_TIERS.FREE]: {
+    maxForms: 1,
+    maxEntriesPerForm: 10,
+    maxDomainsPerForm: 1,
+    smsNotifications: false
+  },
+  [SUBSCRIPTION_TIERS.BASIC]: {
+    maxForms: 5,
+    maxEntriesPerForm: 500,
+    maxDomainsPerForm: 3,
+    smsNotifications: false
+  },
+  [SUBSCRIPTION_TIERS.PREMIUM]: {
+    maxForms: 20,
+    maxEntriesPerForm: 5000,
+    maxDomainsPerForm: 10,
+    smsNotifications: true
+  }
+};
+
+// Middleware
+app.set('trust proxy', false);
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      ...helmet.contentSecurityPolicy.getDefaultDirectives(),
+      "script-src": ["'self'", "'unsafe-inline'", "https://cdn.tailwindcss.com", "https://js.stripe.com"],
+      "style-src": ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+      "frame-src": ["'self'", "https://js.stripe.com", "https://hooks.stripe.com"],
+      "connect-src": ["'self'", "https://api.stripe.com"]
+    }
+  }
+}));
+app.use(cors({
+  origin: '*',
+  methods: ['GET', 'POST', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Origin']
+}));
+app.use(bodyParser.urlencoded({ extended: true }));
+app.use(bodyParser.json());
+app.use(session({
+  secret: process.env.SESSION_SECRET || 'httpforms-secret-key',
+  resave: false,
+  saveUninitialized: true,
+  cookie: { secure: false }
+}));
+app.use(express.static(path.join(__dirname, 'public')));
+
+// Special middleware for Stripe webhook
+const stripeWebhookMiddleware = express.json({
+  verify: (req, res, buf) => {
+    req.rawBody = buf;
+  }
+});
+
+// View engine setup
+app.use(expressLayouts);
+app.set('view engine', 'ejs');
+app.set('views', path.join(__dirname, 'views'));
+app.set('layout', 'layout');
+app.set('layout extractScripts', true);
+app.set('layout extractStyles', true);
+
+// Ensure data directory exists
+const dataDir = path.join(__dirname, 'data');
+if (!fs.existsSync(dataDir)) {
+  fs.mkdirSync(dataDir, { recursive: true });
+}
+
+// JSON file paths
+const usersFilePath = path.join(dataDir, 'users.json');
+const formsFilePath = path.join(dataDir, 'forms.json');
+const formEntriesFilePath = path.join(dataDir, 'form_entries.json');
+const domainsFilePath = path.join(dataDir, 'domains.json');
+const subscriptionsFilePath = path.join(dataDir, 'subscriptions.json');
+
+// Initialize JSON files if they don't exist
+function initializeJsonFile(filePath, defaultContent = []) {
+  if (!fs.existsSync(filePath)) {
+    fs.writeFileSync(filePath, JSON.stringify(defaultContent, null, 2));
+  }
+}
+
+initializeJsonFile(usersFilePath);
+initializeJsonFile(formsFilePath);
+initializeJsonFile(formEntriesFilePath);
+initializeJsonFile(domainsFilePath);
+initializeJsonFile(subscriptionsFilePath);
+
+// Helper functions to read and write to JSON files
+function readJsonFile(filePath) {
+  const data = fs.readFileSync(filePath, 'utf8');
+  return JSON.parse(data);
+}
+
+function writeJsonFile(filePath, data) {
+  fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
+}
+
+// Authentication middleware
+function isAuthenticated(req, res, next) {
+  if (req.session.userId) {
+    return next();
+  }
+  res.redirect('/login');
+}
+
+function isAdmin(req, res, next) {
+  if (req.session.isAdmin) {
+    return next();
+  }
+  res.status(403).send('Access denied');
+}
+
+// Middleware to check subscription limits
+function checkSubscriptionLimits(req, res, next) {
+  try {
+    const userId = req.session.userId;
+    if (!userId) {
+      return res.status(401).redirect('/login');
+    }
+    
+    const users = readJsonFile(usersFilePath);
+    const user = users.find(u => u.id === userId);
+    
+    if (!user) {
+      return res.status(404).render('error', { message: 'User not found' });
+    }
+    
+    // Set default tier to free if not set
+    const tier = user.subscriptionTier || SUBSCRIPTION_TIERS.FREE;
+    const limits = SUBSCRIPTION_LIMITS[tier];
+    
+    // Attach subscription info to request
+    req.subscription = {
+      tier,
+      limits
+    };
+    
+    next();
+  } catch (error) {
+    console.error('Subscription check error:', error);
+    next();
+  }
+}
+
+// Register routes
+app.get('/register', (req, res) => {
+  if (req.session.userId) {
+    return res.redirect('/dashboard');
+  }
+  res.render('register');
+});
+
+app.post('/register', async (req, res) => {
+  try {
+    const { name, email, password } = req.body;
+    
+    // Basic validation
+    if (!name || !email || !password) {
+      return res.render('register', { error: 'All fields are required' });
+    }
+    
+    // Check if email already exists
+    const users = readJsonFile(usersFilePath);
+    if (users.some(user => user.email === email)) {
+      return res.render('register', { error: 'Email already in use' });
+    }
+    
+    // Hash password
+    const hashedPassword = await bcrypt.hash(password, 10);
+    
+    // Create new user
+    const newUser = {
+      id: uuidv4(),
+      name,
+      email,
+      password: hashedPassword,
+      subscriptionTier: SUBSCRIPTION_TIERS.FREE,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+    
+    // Save user
+    users.push(newUser);
+    writeJsonFile(usersFilePath, users);
+    
+    // Log in the user
+    req.session.userId = newUser.id;
+    req.session.userName = newUser.name;
+    req.session.isAdmin = false;
+    
+    res.redirect('/dashboard');
+  } catch (error) {
+    console.error('Registration error:', error);
+    res.render('register', { error: 'Registration failed' });
+  }
+});
+
+// Login routes
+app.get('/login', (req, res) => {
+  if (req.session.userId) {
+    return res.redirect('/dashboard');
+  }
+  res.render('login');
+});
+
+app.post('/login', async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    
+    // Basic validation
+    if (!email || !password) {
+      return res.render('login', { error: 'Email and password are required' });
+    }
+    
+    // Find user by email
+    const users = readJsonFile(usersFilePath);
+    const user = users.find(u => u.email === email);
+    
+    if (!user) {
+      return res.render('login', { error: 'Invalid email or password' });
+    }
+    
+    // Verify password
+    const passwordMatch = await bcrypt.compare(password, user.password);
+    if (!passwordMatch) {
+      return res.render('login', { error: 'Invalid email or password' });
+    }
+    
+    // Set session data
+    req.session.userId = user.id;
+    req.session.userName = user.name;
+    req.session.isAdmin = user.isAdmin || false;
+    
+    res.redirect('/dashboard');
+  } catch (error) {
+    console.error('Login error:', error);
+    res.render('login', { error: 'Login failed' });
+  }
+});
+
+// Logout route
+app.get('/logout', (req, res) => {
+  req.session.destroy();
+  res.redirect('/');
+});
+
+// Dashboard
+app.get('/dashboard', isAuthenticated, (req, res) => {
+  try {
+    const userId = req.session.userId;
+    const users = readJsonFile(usersFilePath);
+    const user = users.find(u => u.id === userId);
+    
+    if (!user) {
+      return res.status(404).render('error', { message: 'User not found' });
+    }
+    
+    // Get user's forms
+    const forms = readJsonFile(formsFilePath);
+    const userForms = forms.filter(form => form.userId === userId);
+    
+    // Get subscription tier details
+    const tier = user.subscriptionTier || SUBSCRIPTION_TIERS.FREE;
+    const limits = SUBSCRIPTION_LIMITS[tier];
+    
+    res.render('dashboard', {
+      user: { 
+        name: user.name,
+        email: user.email,
+        id: user.id
+      },
+      isAdmin: req.session.isAdmin,
+      forms: userForms,
+      subscriptionTier: tier,
+      subscriptionLimits: limits,
+      canCreateForm: userForms.length < limits.maxForms
+    });
+  } catch (error) {
+    console.error('Dashboard error:', error);
+    res.render('error', { message: 'Failed to load dashboard' });
+  }
+});
+
+// Add home page route
+app.get('/', (req, res) => {
+  res.render('index', {
+    user: req.session.userId ? { name: req.session.userName } : null,
+    isAdmin: req.session.isAdmin || false
+  });
+});
+
+// Pricing page
+app.get('/pricing', isAuthenticated, (req, res) => {
+  try {
+    const users = readJsonFile(usersFilePath);
+    const user = users.find(u => u.id === req.session.userId);
+    
+    res.render('pricing', {
+      user: { name: req.session.userName },
+      isAdmin: req.session.isAdmin,
+      currentPlan: user.subscriptionTier || SUBSCRIPTION_TIERS.FREE
+    });
+  } catch (error) {
+    console.error('Pricing page error:', error);
+    res.render('error', { message: 'Failed to load pricing page' });
+  }
+});
+
+// Subscription checkout page
+app.post('/subscription/checkout', isAuthenticated, (req, res) => {
+  try {
+    const { priceId } = req.body;
+    const userId = req.session.userId;
+    
+    const users = readJsonFile(usersFilePath);
+    const user = users.find(u => u.id === userId);
+    
+    if (!user) {
+      return res.status(404).render('error', { message: 'User not found' });
+    }
+    
+    // Determine subscription details based on priceId
+    // In a real app, this would come from Stripe API based on the actual priceId
+    let subscriptionName, subscriptionPrice, subscriptionDescription;
+    let tier;
+    
+    if (priceId === process.env.STRIPE_BASIC_PLAN_ID || priceId.includes('basic')) {
+      subscriptionName = 'Basic';
+      subscriptionPrice = '9.99';
+      subscriptionDescription = '5 forms, 500 entries per form, advanced features';
+      tier = SUBSCRIPTION_TIERS.BASIC;
+    } else if (priceId === process.env.STRIPE_PREMIUM_PLAN_ID || priceId.includes('premium')) {
+      subscriptionName = 'Premium';
+      subscriptionPrice = '29.99';
+      subscriptionDescription = 'Unlimited forms, SMS notifications, priority support';
+      tier = SUBSCRIPTION_TIERS.PREMIUM;
+    } else {
+      return res.status(400).render('error', { message: 'Invalid subscription plan' });
+    }
+    
+    res.render('subscription/checkout', {
+      user,
+      priceId,
+      subscriptionName,
+      subscriptionPrice,
+      subscriptionDescription,
+      stripePublicKey: process.env.STRIPE_PUBLISHABLE_KEY
+    });
+  } catch (error) {
+    console.error('Checkout page error:', error);
+    res.render('error', { message: 'Failed to load checkout page' });
+  }
+});
+
+// Route to handle the actual payment processing
+app.post('/subscription/process-payment', isAuthenticated, async (req, res) => {
+  try {
+    const { paymentMethodId, priceId } = req.body;
+    const userId = req.session.userId;
+    
+    const users = readJsonFile(usersFilePath);
+    const user = users.find(u => u.id === userId);
+    
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+    
+    // Determine subscription tier
+    let tier;
+    if (priceId === process.env.STRIPE_BASIC_PLAN_ID || priceId.includes('basic')) {
+      tier = SUBSCRIPTION_TIERS.BASIC;
+    } else if (priceId === process.env.STRIPE_PREMIUM_PLAN_ID || priceId.includes('premium')) {
+      tier = SUBSCRIPTION_TIERS.PREMIUM;
+    } else {
+      return res.status(400).json({ success: false, message: 'Invalid subscription plan' });
+    }
+    
+    // Check if user already has a Stripe customer ID
+    let customerId = user.stripeCustomerId;
+    
+    if (!customerId) {
+      // Create a new customer in Stripe
+      const customer = await stripe.customers.create({
+        email: user.email,
+        name: user.name,
+        payment_method: paymentMethodId,
+        invoice_settings: {
+          default_payment_method: paymentMethodId,
+        },
+      });
+      
+      customerId = customer.id;
+      
+      // Update user with Stripe customer ID
+      const userIndex = users.findIndex(u => u.id === userId);
+      users[userIndex].stripeCustomerId = customerId;
+      writeJsonFile(usersFilePath, users);
+    } else {
+      // Update the customer's payment method
+      await stripe.paymentMethods.attach(paymentMethodId, {
+        customer: customerId,
+      });
+      
+      await stripe.customers.update(customerId, {
+        invoice_settings: {
+          default_payment_method: paymentMethodId,
+        },
+      });
+    }
+    
+    // Create the subscription
+    const subscription = await stripe.subscriptions.create({
+      customer: customerId,
+      items: [{ price: priceId }],
+      expand: ['latest_invoice.payment_intent'],
+    });
+    
+    // Update user's subscription in our database
+    const userIndex = users.findIndex(u => u.id === userId);
+    users[userIndex].subscriptionTier = tier;
+    users[userIndex].stripeSubscriptionId = subscription.id;
+    users[userIndex].updatedAt = new Date().toISOString();
+    writeJsonFile(usersFilePath, users);
+    
+    // Save subscription details
+    const subscriptions = readJsonFile(subscriptionsFilePath);
+    const existingIndex = subscriptions.findIndex(s => s.userId === userId && s.status === 'active');
+    
+    const subscriptionData = {
+      id: uuidv4(),
+      userId,
+      tier,
+      stripeCustomerId: customerId,
+      stripeSubscriptionId: subscription.id,
+      status: subscription.status,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+    
+    if (existingIndex !== -1) {
+      // Update existing subscription
+      subscriptionData.id = subscriptions[existingIndex].id;
+      subscriptions[existingIndex] = subscriptionData;
+    } else {
+      // Create new subscription
+      subscriptions.push(subscriptionData);
+    }
+    
+    writeJsonFile(subscriptionsFilePath, subscriptions);
+    
+    // Handle payment status
+    const invoice = subscription.latest_invoice;
+    const paymentIntent = invoice.payment_intent;
+    
+    if (paymentIntent) {
+      if (paymentIntent.status === 'requires_action') {
+        // The payment requires additional action from the customer
+        return res.json({
+          requiresAction: true,
+          clientSecret: paymentIntent.client_secret
+        });
+      } else if (paymentIntent.status === 'succeeded') {
+        // The payment was successful
+        return res.json({ success: true, subscriptionId: subscription.id });
+      }
+    }
+    
+    // Handle other cases
+    return res.json({ success: true, subscriptionId: subscription.id });
+  } catch (error) {
+    console.error('Process payment error:', error);
+    return res.status(500).json({ 
+      success: false, 
+      error: { message: 'Payment processing failed' } 
+    });
+  }
+});
+
+// Create Stripe checkout session
+app.post('/subscription/create-checkout-session', isAuthenticated, async (req, res) => {
+  try {
+    const { plan } = req.body;
+    
+    if (plan !== SUBSCRIPTION_TIERS.BASIC && plan !== SUBSCRIPTION_TIERS.PREMIUM) {
+      return res.status(400).json({ success: false, message: 'Invalid subscription plan' });
+    }
+    
+    const userId = req.session.userId;
+    const users = readJsonFile(usersFilePath);
+    const user = users.find(u => u.id === userId);
+    
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+    
+    // Determine price based on plan
+    const unitAmount = plan === SUBSCRIPTION_TIERS.BASIC 
+      ? parseInt(process.env.STRIPE_BASIC_PLAN_PRICE) 
+      : parseInt(process.env.STRIPE_PREMIUM_PLAN_PRICE);
+    
+    const productName = plan === SUBSCRIPTION_TIERS.BASIC 
+      ? 'HTTPForms Basic Plan' 
+      : 'HTTPForms Premium Plan';
+    
+    // Create a checkout session
+    const session = await stripe.checkout.sessions.create({
+      payment_method_types: ['card'],
+      line_items: [
+        {
+          price_data: {
+            currency: 'usd',
+            product_data: {
+              name: productName,
+              description: plan === SUBSCRIPTION_TIERS.BASIC 
+                ? '5 forms, 500 entries per form, email notifications' 
+                : '20 forms, 5000 entries per form, email & SMS notifications'
+            },
+            unit_amount: unitAmount,
+            recurring: {
+              interval: 'month'
+            }
+          },
+          quantity: 1,
+        }
+      ],
+      mode: 'subscription',
+      success_url: `${req.protocol}://${req.get('host')}/subscription/success?plan=${plan}&session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${req.protocol}://${req.get('host')}/subscription/cancel`,
+      customer_email: user.email,
+      client_reference_id: userId,
+      metadata: {
+        userId: userId,
+        plan: plan
+      }
+    });
+    
+    res.json({ success: true, sessionId: session.id });
+  } catch (error) {
+    console.error('Create checkout session error:', error);
+    res.status(500).json({ success: false, message: 'Failed to create checkout session' });
+  }
+});
+
+// Subscription success page
+app.get('/subscription/success', isAuthenticated, async (req, res) => {
+  try {
+    const { plan, session_id } = req.query;
+    
+    if (!plan && !session_id) {
+      // User might be coming directly to success page after Stripe processes the payment
+      const userId = req.session.userId;
+      const users = readJsonFile(usersFilePath);
+      const user = users.find(u => u.id === userId);
+      
+      if (!user) {
+        return res.redirect('/dashboard');
+      }
+      
+      const tier = user.subscriptionTier || SUBSCRIPTION_TIERS.FREE;
+      
+      // Set subscription price based on tier
+      let subscriptionPrice = '0';
+      let subscriptionName = 'Free';
+      
+      if (tier === SUBSCRIPTION_TIERS.BASIC) {
+        subscriptionPrice = '9.99';
+        subscriptionName = 'Basic';
+      } else if (tier === SUBSCRIPTION_TIERS.PREMIUM) {
+        subscriptionPrice = '29.99';
+        subscriptionName = 'Premium';
+      }
+      
+      return res.render('subscription/success', {
+        user: { name: req.session.userName },
+        isAdmin: req.session.isAdmin,
+        subscriptionName,
+        subscriptionPrice
+      });
+    }
+    
+    const sessionId = session_id;
+    const userId = req.session.userId;
+    
+    // Verify the session
+    try {
+      const session = await stripe.checkout.sessions.retrieve(sessionId);
+      
+      if (session.payment_status === 'paid') {
+        // Update user subscription in our database
+        const users = readJsonFile(usersFilePath);
+        const userIndex = users.findIndex(u => u.id === userId);
+        
+        if (userIndex !== -1) {
+          users[userIndex].subscriptionTier = plan;
+          users[userIndex].stripeCustomerId = session.customer;
+          users[userIndex].stripeSubscriptionId = session.subscription;
+          users[userIndex].updatedAt = new Date().toISOString();
+          
+          writeJsonFile(usersFilePath, users);
+          
+          // Save subscription details
+          const subscriptions = readJsonFile(subscriptionsFilePath);
+          const existingIndex = subscriptions.findIndex(s => s.userId === userId);
+          
+          const subscriptionData = {
+            id: uuidv4(),
+            userId,
+            plan,
+            stripeCustomerId: session.customer,
+            stripeSubscriptionId: session.subscription,
+            status: 'active',
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+          };
+          
+          if (existingIndex !== -1) {
+            subscriptions[existingIndex] = {
+              ...subscriptions[existingIndex],
+              ...subscriptionData,
+              id: subscriptions[existingIndex].id
+            };
+          } else {
+            subscriptions.push(subscriptionData);
+          }
+          
+          writeJsonFile(subscriptionsFilePath, subscriptions);
+        }
+      }
+    } catch (error) {
+      console.error('Error verifying Stripe session:', error);
+    }
+    
+    // Set subscription price based on plan
+    let subscriptionPrice = '0';
+    let subscriptionName = 'Free';
+    
+    if (plan === SUBSCRIPTION_TIERS.BASIC) {
+      subscriptionPrice = '9.99';
+      subscriptionName = 'Basic';
+    } else if (plan === SUBSCRIPTION_TIERS.PREMIUM) {
+      subscriptionPrice = '29.99';
+      subscriptionName = 'Premium';
+    }
+    
+    res.render('subscription/success', {
+      user: { name: req.session.userName },
+      isAdmin: req.session.isAdmin,
+      subscriptionName,
+      subscriptionPrice
+    });
+  } catch (error) {
+    console.error('Subscription success error:', error);
+    res.redirect('/dashboard');
+  }
+});
+
+// Subscription cancel page
+app.get('/subscription/cancel', isAuthenticated, (req, res) => {
+  try {
+    const userId = req.session.userId;
+    const users = readJsonFile(usersFilePath);
+    const user = users.find(u => u.id === userId);
+    
+    if (!user) {
+      return res.status(404).render('error', { message: 'User not found' });
+    }
+    
+    const subscriptions = readJsonFile(subscriptionsFilePath);
+    const subscription = subscriptions.find(s => s.userId === userId && s.status === 'active');
+    
+    if (!subscription) {
+      return res.redirect('/pricing');
+    }
+    
+    // Get subscription tier details
+    const tier = user.subscriptionTier || SUBSCRIPTION_TIERS.FREE;
+    
+    // Set subscription price based on tier
+    let subscriptionPrice = '0';
+    let subscriptionName = 'Free';
+    
+    if (tier === SUBSCRIPTION_TIERS.BASIC) {
+      subscriptionPrice = '9.99';
+      subscriptionName = 'Basic';
+    } else if (tier === SUBSCRIPTION_TIERS.PREMIUM) {
+      subscriptionPrice = '29.99';
+      subscriptionName = 'Premium';
+    }
+    
+    // Calculate next billing date
+    const now = new Date();
+    const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, now.getDate());
+    const nextBillingDate = nextMonth.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+    
+    res.render('subscription/cancel', {
+      user: { name: req.session.userName },
+      isAdmin: req.session.isAdmin,
+      subscriptionName,
+      subscriptionPrice,
+      nextBillingDate,
+      subscriptionId: subscription.id
+    });
+  } catch (error) {
+    console.error('Subscription cancel page error:', error);
+    res.render('error', { message: 'Failed to load cancellation page' });
+  }
+});
+
+// Stripe webhook handler
+app.post('/stripe-webhook', stripeWebhookMiddleware, async (req, res) => {
+  const signature = req.headers['stripe-signature'];
+  
+  let event;
+  
+  try {
+    event = stripe.webhooks.constructEvent(
+      req.rawBody,
+      signature,
+      process.env.STRIPE_WEBHOOK_SECRET
+    );
+  } catch (error) {
+    console.error('Webhook signature verification failed:', error);
+    return res.status(400).json({ success: false, message: 'Invalid signature' });
+  }
+  
+  // Handle different types of events
+  switch (event.type) {
+    case 'customer.subscription.updated': {
+      const subscription = event.data.object;
+      try {
+        // Find subscription in our database
+        const subscriptions = readJsonFile(subscriptionsFilePath);
+        const localSubscription = subscriptions.find(s => s.stripeSubscriptionId === subscription.id);
+        
+        if (localSubscription) {
+          // Update subscription status
+          const index = subscriptions.findIndex(s => s.id === localSubscription.id);
+          subscriptions[index].status = subscription.status;
+          subscriptions[index].updatedAt = new Date().toISOString();
+          
+          writeJsonFile(subscriptionsFilePath, subscriptions);
+        }
+      } catch (error) {
+        console.error('Error updating subscription:', error);
+      }
+      break;
+    }
+    
+    case 'customer.subscription.deleted': {
+      const subscription = event.data.object;
+      try {
+        // Find subscription in our database
+        const subscriptions = readJsonFile(subscriptionsFilePath);
+        const localSubscription = subscriptions.find(s => s.stripeSubscriptionId === subscription.id);
+        
+        if (localSubscription) {
+          // Update user to free tier
+          const users = readJsonFile(usersFilePath);
+          const userIndex = users.findIndex(u => u.id === localSubscription.userId);
+          
+          if (userIndex !== -1) {
+            users[userIndex].subscriptionTier = SUBSCRIPTION_TIERS.FREE;
+            users[userIndex].updatedAt = new Date().toISOString();
+            
+            writeJsonFile(usersFilePath, users);
+          }
+          
+          // Update subscription status
+          const index = subscriptions.findIndex(s => s.id === localSubscription.id);
+          subscriptions[index].status = 'canceled';
+          subscriptions[index].updatedAt = new Date().toISOString();
+          
+          writeJsonFile(subscriptionsFilePath, subscriptions);
+        }
+      } catch (error) {
+        console.error('Error canceling subscription:', error);
+      }
+      break;
+    }
+  }
+  
+  res.json({ received: true });
+});
+
+// Send SMS notification (for premium subscribers)
+async function sendSmsNotification(phoneNumber, message) {
+  try {
+    const result = await twilio.messages.create({
+      body: message,
+      from: process.env.TWILIO_PHONE_NUMBER,
+      to: phoneNumber
+    });
+    
+    return { success: true, sid: result.sid };
+  } catch (error) {
+    console.error('Twilio SMS error:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+// Modify the form submission API to check subscription tier for SMS notifications
+app.post('/api/submit/:formId', async (req, res) => {
+  try {
+    // Set CORS headers specifically for this endpoint
+    res.header('Access-Control-Allow-Origin', '*');
+    res.header('Access-Control-Allow-Methods', 'POST, OPTIONS');
+    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Origin');
+    
+    const formId = req.params.formId;
+    const formData = req.body;
+    const referer = req.headers.referer || '';
+    const domain = new URL(referer).hostname;
+    
+    const forms = readJsonFile(formsFilePath);
+    const form = forms.find(f => f.id === formId);
+    
+    if (!form) {
+      return res.status(404).json({ success: false, message: 'Form not found' });
+    }
+    
+    // Check if domain is allowed
+    if (form.domains && form.domains.length > 0) {
+      const isAllowedDomain = form.domains.some(d => domain.includes(d));
+      
+      if (!isAllowedDomain) {
+        return res.status(403).json({ success: false, message: 'Domain not allowed' });
+      }
+    }
+    
+    // Save form entry
+    const entries = readJsonFile(formEntriesFilePath);
+    const newEntry = {
+      id: uuidv4(),
+      formId,
+      data: formData,
+      domain,
+      createdAt: new Date().toISOString()
+    };
+    
+    entries.push(newEntry);
+    writeJsonFile(formEntriesFilePath, entries);
+    
+    // Get form owner
+    const users = readJsonFile(usersFilePath);
+    const formOwner = users.find(user => user.id === form.userId);
+    
+    if (formOwner) {
+      // Check subscription for SMS notifications
+      const tier = formOwner.subscriptionTier || SUBSCRIPTION_TIERS.FREE;
+      const canSendSms = SUBSCRIPTION_LIMITS[tier].smsNotifications;
+      
+      // Send email notification if POSTMARK_API_TOKEN is set
+      if (process.env.POSTMARK_API_TOKEN) {
+        const client = new postmark.ServerClient(process.env.POSTMARK_API_TOKEN);
+        
+        const formFields = Object.entries(formData)
+          .map(([key, value]) => `<p><strong>${key}:</strong> ${value}</p>`)
+          .join('');
+        
+        client.sendEmail({
+          From: 'contact@httpforms.com',
+          To: formOwner.email,
+          Subject: `New submission for ${form.name}`,
+          HtmlBody: `
+            <h1>New form submission</h1>
+            <p>You have a new submission for ${form.name} from ${domain}</p>
+            <div>${formFields}</div>
+          `,
+          MessageStream: 'outbound'
+        });
+      }
+      
+      // Send SMS notification if premium subscriber and phone number is set
+      if (canSendSms && formOwner.phoneNumber) {
+        await sendSmsNotification(
+          formOwner.phoneNumber,
+          `New submission received for your form "${form.name}" from ${domain}`
+        );
+      }
+    }
+    
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Form submission error:', error);
+    res.status(500).json({ success: false, message: 'Failed to submit form' });
+  }
+});
+
+// Manage subscription page
+app.get('/subscription/manage', isAuthenticated, async (req, res) => {
+  try {
+    const userId = req.session.userId;
+    const users = readJsonFile(usersFilePath);
+    const user = users.find(u => u.id === userId);
+    
+    if (!user) {
+      return res.status(404).render('error', { message: 'User not found' });
+    }
+    
+    const subscriptions = readJsonFile(subscriptionsFilePath);
+    const subscription = subscriptions.find(s => s.userId === userId && s.status === 'active');
+    
+    if (!subscription) {
+      return res.redirect('/pricing');
+    }
+    
+    // Get subscription tier details
+    const tier = user.subscriptionTier || SUBSCRIPTION_TIERS.FREE;
+    const limits = SUBSCRIPTION_LIMITS[tier];
+    
+    // Get user's forms
+    const forms = readJsonFile(formsFilePath);
+    const userForms = forms.filter(form => form.userId === userId);
+    
+    // Calculate usage statistics
+    const currentForms = userForms.length;
+    
+    // Get form entries
+    const formEntries = readJsonFile(formEntriesFilePath);
+    
+    // Calculate average submissions per form
+    let totalSubmissions = 0;
+    let totalDomains = 0;
+    
+    userForms.forEach(form => {
+      const formSubmissions = formEntries.filter(entry => entry.formId === form.id).length;
+      totalSubmissions += formSubmissions;
+      
+      // Count unique domains
+      const uniqueDomains = form.domains ? form.domains.length : 0;
+      totalDomains += uniqueDomains;
+    });
+    
+    const averageSubmissions = userForms.length > 0 ? Math.round(totalSubmissions / userForms.length) : 0;
+    const averageDomains = userForms.length > 0 ? Math.round(totalDomains / userForms.length) : 0;
+    
+    // Format billing information
+    const now = new Date();
+    const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, now.getDate());
+    const nextPaymentDate = nextMonth.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+    
+    const subscriptionStartDate = new Date(subscription.createdAt);
+    const billingPeriod = `${subscriptionStartDate.toLocaleDateString('en-US', {
+      month: 'long',
+      day: 'numeric'
+    })} - ${new Date(nextMonth.getFullYear(), nextMonth.getMonth(), subscriptionStartDate.getDate() - 1).toLocaleDateString('en-US', {
+      month: 'long',
+      day: 'numeric'
+    })}`;
+    
+    // Set subscription price based on tier
+    let subscriptionPrice = '0';
+    let subscriptionName = 'Free';
+    
+    if (tier === SUBSCRIPTION_TIERS.BASIC) {
+      subscriptionPrice = '9.99';
+      subscriptionName = 'Basic';
+    } else if (tier === SUBSCRIPTION_TIERS.PREMIUM) {
+      subscriptionPrice = '29.99';
+      subscriptionName = 'Premium';
+    }
+    
+    // Render the subscription management page
+    res.render('subscription/manage', {
+      user: { 
+        name: req.session.userName,
+        email: user.email
+      },
+      isAdmin: req.session.isAdmin,
+      subscriptionName,
+      subscriptionPrice,
+      billingPeriod,
+      nextPaymentDate,
+      paymentMethod: user.paymentMethod || null,
+      currentForms,
+      maxForms: limits.maxForms,
+      averageSubmissions,
+      maxSubmissionsPerForm: limits.maxEntriesPerForm,
+      averageDomains,
+      maxDomainsPerForm: limits.maxDomainsPerForm,
+      hasSmsNotifications: limits.smsNotifications,
+      hasCustomBranding: limits.customBranding || false,
+      invoices: [] // In a real implementation, we would fetch this from Stripe
+    });
+  } catch (error) {
+    console.error('Subscription management error:', error);
+    res.render('error', { message: 'Failed to load subscription management page' });
+  }
+});
+
+// Downgrade to free plan
+app.post('/subscription/downgrade', isAuthenticated, async (req, res) => {
+  try {
+    const userId = req.session.userId;
+    const users = readJsonFile(usersFilePath);
+    const userIndex = users.findIndex(u => u.id === userId);
+    
+    if (userIndex === -1) {
+      return res.status(404).render('error', { message: 'User not found' });
+    }
+    
+    const subscriptions = readJsonFile(subscriptionsFilePath);
+    const subscription = subscriptions.find(s => s.userId === userId && (s.status === 'active' || s.status === 'cancelling'));
+    
+    if (!subscription || !subscription.stripeSubscriptionId) {
+      // If no active subscription, just set to free tier
+      users[userIndex].subscriptionTier = SUBSCRIPTION_TIERS.FREE;
+      users[userIndex].updatedAt = new Date().toISOString();
+      writeJsonFile(usersFilePath, users);
+      return res.redirect('/subscription/manage');
+    }
+    
+    // Cancel subscription in Stripe
+    await stripe.subscriptions.update(subscription.stripeSubscriptionId, {
+      cancel_at_period_end: true
+    });
+    
+    // Update user to free tier immediately
+    users[userIndex].subscriptionTier = SUBSCRIPTION_TIERS.FREE;
+    users[userIndex].updatedAt = new Date().toISOString();
+    writeJsonFile(usersFilePath, users);
+    
+    // Update subscription status in our database
+    const subscriptionIndex = subscriptions.findIndex(s => s.id === subscription.id);
+    subscriptions[subscriptionIndex].status = 'canceled';
+    subscriptions[subscriptionIndex].cancelledAt = new Date().toISOString();
+    subscriptions[subscriptionIndex].cancelReason = 'downgrade';
+    
+    writeJsonFile(subscriptionsFilePath, subscriptions);
+    
+    res.redirect('/subscription/manage');
+  } catch (error) {
+    console.error('Subscription downgrade error:', error);
+    res.render('error', { message: 'Failed to downgrade subscription' });
+  }
+});
+
+// Process subscription cancellation
+app.post('/subscription/process-cancellation', isAuthenticated, async (req, res) => {
+  try {
+    const userId = req.session.userId;
+    const { subscriptionId, cancellationReason, feedback } = req.body;
+    
+    // Get the user's subscription
+    const subscriptions = readJsonFile(subscriptionsFilePath);
+    const subscription = subscriptions.find(s => s.userId === userId && s.status === 'active');
+    
+    if (!subscription || !subscription.stripeSubscriptionId) {
+      return res.status(404).render('error', { message: 'Subscription not found' });
+    }
+    
+    // Record cancellation reason for analytics (in a real app)
+    console.log(`User ${userId} cancelled subscription. Reason: ${cancellationReason}. Feedback: ${feedback || 'None'}`);
+    
+    // Cancel the subscription in Stripe
+    await stripe.subscriptions.update(subscription.stripeSubscriptionId, {
+      cancel_at_period_end: true
+    });
+    
+    // Update subscription in our database
+    const subscriptionIndex = subscriptions.findIndex(s => s.id === subscription.id);
+    subscriptions[subscriptionIndex].cancelReason = cancellationReason;
+    subscriptions[subscriptionIndex].cancelFeedback = feedback;
+    subscriptions[subscriptionIndex].cancelledAt = new Date().toISOString();
+    subscriptions[subscriptionIndex].status = 'cancelling'; // Will be fully cancelled at period end
+    
+    writeJsonFile(subscriptionsFilePath, subscriptions);
+    
+    // Render cancellation confirmation page
+    res.render('subscription/cancellation-confirmation', {
+      user: { name: req.session.userName },
+      isAdmin: req.session.isAdmin,
+      nextBillingDate: req.body.nextBillingDate || 'the end of your billing period'
+    });
+  } catch (error) {
+    console.error('Subscription cancellation error:', error);
+    res.render('error', { message: 'Failed to cancel subscription' });
+  }
+});
+
+// Route for redirecting to Stripe billing portal
+app.get('/subscription/billing-portal', isAuthenticated, async (req, res) => {
+  try {
+    const userId = req.session.userId;
+    const users = readJsonFile(usersFilePath);
+    const user = users.find(u => u.id === userId);
+    
+    if (!user) {
+      return res.status(404).render('error', { message: 'User not found' });
+    }
+    
+    const subscriptions = readJsonFile(subscriptionsFilePath);
+    const subscription = subscriptions.find(s => s.userId === userId && s.status === 'active');
+    
+    if (!subscription || !subscription.stripeCustomerId) {
+      return res.redirect('/pricing');
+    }
+    
+    // Create a Stripe customer portal session
+    const session = await stripe.billingPortal.sessions.create({
+      customer: subscription.stripeCustomerId,
+      return_url: `${req.protocol}://${req.get('host')}/subscription/manage`
+    });
+    
+    res.redirect(session.url);
+  } catch (error) {
+    console.error('Billing portal error:', error);
+    res.render('error', { message: 'Failed to access billing portal' });
+  }
+});
+
+// Manage subscription page (redirect to our custom management page)
+app.get('/manage-subscription', isAuthenticated, (req, res) => {
+  res.redirect('/subscription/manage');
+});
+
+app.listen(PORT, () => {
+  console.log(`Server is running on port ${PORT}`);
+}); 

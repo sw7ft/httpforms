@@ -1,0 +1,194 @@
+<div>
+  <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+    <h1 class="text-3xl font-bold text-primary mb-8">Account Settings</h1>
+    
+    <% if (locals.message) { %>
+      <div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-8">
+        <%= message %>
+      </div>
+    <% } %>
+    
+    <% if (locals.error) { %>
+      <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-8">
+        <%= error %>
+      </div>
+    <% } %>
+    
+    <div class="bg-white rounded-lg shadow-md overflow-hidden mb-8">
+      <div class="border-b border-gray-200">
+        <ul class="flex flex-wrap -mb-px">
+          <li class="mr-2">
+            <a href="#profile" class="inline-block py-4 px-4 text-primary font-medium border-b-2 border-primary">Profile</a>
+          </li>
+          <li class="mr-2">
+            <a href="#subscription" class="inline-block py-4 px-4 text-gray-500 hover:text-primary font-medium">Subscription</a>
+          </li>
+        </ul>
+      </div>
+      
+      <div id="profile" class="p-6">
+        <h2 class="text-xl font-bold text-primary mb-4">Profile Information</h2>
+        
+        <form action="/account/update" method="post" class="space-y-4">
+          <div>
+            <label for="name" class="form-label">Name</label>
+            <input type="text" id="name" name="name" class="form-input" value="<%= user.name %>" required>
+          </div>
+          <div>
+            <label for="email" class="form-label">Email</label>
+            <input type="email" id="email" name="email" class="form-input" value="<%= user.email %>" required>
+          </div>
+          <div>
+            <label for="phoneNumber" class="form-label">Phone Number (for SMS notifications)</label>
+            <input type="tel" id="phoneNumber" name="phoneNumber" class="form-input" value="<%= user.phoneNumber || '' %>" placeholder="+1234567890">
+            <p class="mt-1 text-xs text-gray-500">Format: +[country code][number], e.g., +12125551234</p>
+          </div>
+          <div>
+            <button type="submit" class="btn-primary">Update Profile</button>
+          </div>
+        </form>
+        
+        <div class="mt-8 pt-6 border-t border-gray-200">
+          <h3 class="text-lg font-bold text-primary mb-4">Change Password</h3>
+          
+          <form action="/account/password" method="POST" class="space-y-4">
+            <div>
+              <label for="current-password" class="form-label">Current Password</label>
+              <input type="password" id="current-password" name="currentPassword" class="form-input">
+            </div>
+            
+            <div>
+              <label for="new-password" class="form-label">New Password</label>
+              <input type="password" id="new-password" name="newPassword" class="form-input">
+            </div>
+            
+            <div>
+              <label for="confirm-password" class="form-label">Confirm New Password</label>
+              <input type="password" id="confirm-password" name="confirmPassword" class="form-input">
+            </div>
+            
+            <div class="pt-2">
+              <button type="submit" class="btn-primary">Change Password</button>
+            </div>
+          </form>
+        </div>
+      </div>
+      
+      <div id="subscription" class="p-6 hidden">
+        <h2 class="text-xl font-bold text-primary mb-4">Subscription Details</h2>
+        
+        <% if (subscription) { %>
+          <div class="bg-gray-100 rounded-lg p-6 mb-6">
+            <div class="grid grid-cols-2 gap-4">
+              <div class="text-gray-600">Plan:</div>
+              <div class="font-medium"><%= subscription.planType === 'premium' ? 'Premium Plan' : 'Basic Plan' %></div>
+              
+              <div class="text-gray-600">Amount:</div>
+              <div class="font-medium">$<%= subscription.planType === 'premium' ? '10' : '5' %>/month</div>
+              
+              <div class="text-gray-600">Status:</div>
+              <div class="font-medium <%= subscription.status === 'active' ? 'text-green-600' : 'text-red-600' %>">
+                <%= subscription.status.charAt(0).toUpperCase() + subscription.status.slice(1) %>
+              </div>
+              
+              <div class="text-gray-600">Start Date:</div>
+              <div class="font-medium"><%= new Date(subscription.createdAt).toLocaleDateString() %></div>
+              
+              <% if (subscription.cancelAt) { %>
+                <div class="text-gray-600">Cancels On:</div>
+                <div class="font-medium"><%= new Date(subscription.cancelAt).toLocaleDateString() %></div>
+              <% } %>
+            </div>
+          </div>
+          
+          <div class="space-y-4">
+            <% if (subscription.status === 'active') { %>
+              <% if (subscription.planType === 'basic') { %>
+                <form action="/subscription/upgrade" method="POST">
+                  <button type="submit" class="btn-accent">
+                    Upgrade to Premium Plan
+                  </button>
+                </form>
+              <% } else if (subscription.planType === 'premium') { %>
+                <form action="/subscription/downgrade" method="POST">
+                  <button type="submit" class="btn-outline">
+                    Downgrade to Basic Plan
+                  </button>
+                </form>
+              <% } %>
+              
+              <% if (!subscription.cancelAt) { %>
+                <form action="/subscription/cancel" method="POST">
+                  <button type="submit" class="text-red-600 hover:text-red-800 font-medium">
+                    Cancel Subscription
+                  </button>
+                </form>
+              <% } else { %>
+                <form action="/subscription/reactivate" method="POST">
+                  <button type="submit" class="text-green-600 hover:text-green-800 font-medium">
+                    Resume Subscription
+                  </button>
+                </form>
+              <% } %>
+            <% } else if (subscription.status === 'canceled') { %>
+              <form action="/subscription/create" method="POST">
+                <input type="hidden" name="planType" value="<%= subscription.planType %>">
+                <button type="submit" class="btn-primary">
+                  Resubscribe to <%= subscription.planType === 'premium' ? 'Premium' : 'Basic' %> Plan
+                </button>
+              </form>
+            <% } %>
+            
+            <a href="/billing-portal" class="block text-primary hover:text-accent font-medium">
+              Manage Billing
+            </a>
+          </div>
+        <% } else { %>
+          <div class="text-center py-8">
+            <p class="text-gray-600 mb-6">You don't have an active subscription.</p>
+            <a href="/plans" class="btn-primary">Choose a Plan</a>
+          </div>
+        <% } %>
+      </div>
+    </div>
+  </div>
+</div>
+
+<% scripts = `
+<script>
+  // Tab functionality
+  const profileTab = document.querySelector('a[href="#profile"]');
+  const subscriptionTab = document.querySelector('a[href="#subscription"]');
+  const profileSection = document.getElementById('profile');
+  const subscriptionSection = document.getElementById('subscription');
+  
+  profileTab.addEventListener('click', function(e) {
+    e.preventDefault();
+    
+    profileTab.classList.add('text-primary', 'border-primary');
+    profileTab.classList.remove('text-gray-500');
+    subscriptionTab.classList.add('text-gray-500');
+    subscriptionTab.classList.remove('text-primary', 'border-primary');
+    
+    profileSection.classList.remove('hidden');
+    subscriptionSection.classList.add('hidden');
+  });
+  
+  subscriptionTab.addEventListener('click', function(e) {
+    e.preventDefault();
+    
+    subscriptionTab.classList.add('text-primary', 'border-primary');
+    subscriptionTab.classList.remove('text-gray-500');
+    profileTab.classList.add('text-gray-500');
+    profileTab.classList.remove('text-primary', 'border-primary');
+    
+    subscriptionSection.classList.remove('hidden');
+    profileSection.classList.add('hidden');
+  });
+  
+  // Check URL hash for tab selection
+  if (window.location.hash === '#subscription') {
+    subscriptionTab.click();
+  }
+</script>
+` %> 

@@ -15,7 +15,7 @@
             <a href="/dashboard" class="btn-accent text-center">Go to Dashboard</a>
             <a href="/form/new" class="btn-outline text-center">Create New Form</a>
           <% } else { %>
-            <a href="/register" class="btn-accent text-center">Get Started Free</a>
+            <a href="/plans" class="btn-accent text-center">Get Started</a>
             <a href="/login" class="btn-outline text-center">Sign In</a>
           <% } %>
         </div>
@@ -47,6 +47,157 @@
     </div>
   </div>
   <div class="absolute bottom-0 inset-x-0 h-24 bg-gradient-to-t from-gray-50"></div>
+</section>
+
+<!-- How It Works Section -->
+<section class="py-16 bg-white">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div class="text-center mb-16">
+      <h2 class="text-3xl font-bold text-primary mb-4">How It Works</h2>
+      <p class="text-gray-600 max-w-2xl mx-auto">
+        HTTPForms simplifies the process of creating and managing forms for your website.
+      </p>
+    </div>
+    
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-12">
+      <div class="text-center">
+        <div class="mx-auto w-16 h-16 bg-primary-light rounded-full flex items-center justify-center mb-4">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+          </svg>
+        </div>
+        <h3 class="text-xl font-bold text-primary mb-2">1. Choose a Plan</h3>
+        <p class="text-gray-600">
+          Select a subscription plan that meets your needs, whether basic or premium with SMS notifications.
+        </p>
+      </div>
+      
+      <div class="text-center">
+        <div class="mx-auto w-16 h-16 bg-primary-light rounded-full flex items-center justify-center mb-4">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2" />
+          </svg>
+        </div>
+        <h3 class="text-xl font-bold text-primary mb-2">2. Create Your Form</h3>
+        <p class="text-gray-600">
+          Design your form with our intuitive builder, adding the fields you need.
+        </p>
+      </div>
+      
+      <div class="text-center">
+        <div class="mx-auto w-16 h-16 bg-primary-light rounded-full flex items-center justify-center mb-4">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+          </svg>
+        </div>
+        <h3 class="text-xl font-bold text-primary mb-2">3. Embed & Collect</h3>
+        <p class="text-gray-600">
+          Embed your form on your website and start collecting responses instantly.
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+  
+<!-- Pricing Section -->
+<section class="bg-gray-50 py-16">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div class="text-center mb-16">
+      <h2 class="text-3xl font-bold text-primary mb-4">Simple, Transparent Pricing</h2>
+      <p class="text-gray-600 max-w-2xl mx-auto">
+        Choose the plan that works best for your needs.
+      </p>
+    </div>
+    
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+      <!-- Basic Plan -->
+      <div class="bg-white rounded-lg shadow-md overflow-hidden">
+        <div class="p-6 bg-primary text-white">
+          <h3 class="text-2xl font-bold">Basic Plan</h3>
+          <div class="mt-4">
+            <span class="text-3xl font-bold">$5</span>
+            <span class="text-lg">/month</span>
+          </div>
+        </div>
+        
+        <div class="p-6">
+          <ul class="space-y-3 mb-6">
+            <li class="flex items-center">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-green-500 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+              </svg>
+              Unlimited form submissions
+            </li>
+            <li class="flex items-center">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-green-500 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+              </svg>
+              Up to 10 forms
+            </li>
+            <li class="flex items-center">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-green-500 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+              </svg>
+              Email notifications
+            </li>
+            <li class="flex items-center opacity-50">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-red-500 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+              SMS notifications
+            </li>
+          </ul>
+          
+          <a href="/plans" class="btn-primary w-full block text-center">Get Started</a>
+        </div>
+      </div>
+      
+      <!-- Premium Plan -->
+      <div class="bg-white rounded-lg shadow-md overflow-hidden border-2 border-accent">
+        <div class="bg-accent p-6 text-primary">
+          <div class="flex justify-between items-center">
+            <h3 class="text-2xl font-bold">Premium Plan</h3>
+            <span class="bg-primary text-white text-xs uppercase font-bold py-1 px-2 rounded">Recommended</span>
+          </div>
+          <div class="mt-4">
+            <span class="text-3xl font-bold">$10</span>
+            <span class="text-lg">/month</span>
+          </div>
+        </div>
+        
+        <div class="p-6">
+          <ul class="space-y-3 mb-6">
+            <li class="flex items-center">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-green-500 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+              </svg>
+              Unlimited form submissions
+            </li>
+            <li class="flex items-center">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-green-500 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+              </svg>
+              Unlimited forms
+            </li>
+            <li class="flex items-center">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-green-500 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+              </svg>
+              Email notifications
+            </li>
+            <li class="flex items-center">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-green-500 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+              </svg>
+              SMS notifications
+            </li>
+          </ul>
+          
+          <a href="/plans" class="btn-accent w-full block text-center">Get Started</a>
+        </div>
+      </div>
+    </div>
+  </div>
 </section>
 
 <!-- Features Section -->
@@ -105,13 +256,13 @@
       Ready to get started?
     </h2>
     <p class="mt-4 text-lg text-gray-300">
-      Create your account today and start building beautiful forms for your website.
+      Choose a subscription plan today and start building beautiful forms for your website.
     </p>
     <div class="mt-8 flex justify-center">
       <% if (locals.user) { %>
         <a href="/dashboard" class="btn-accent">Go to Dashboard</a>
       <% } else { %>
-        <a href="/register" class="btn-accent">Get Started Free</a>
+        <a href="/plans" class="btn-accent">Choose a Plan</a>
       <% } %>
     </div>
   </div>

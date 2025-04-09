@@ -1,0 +1,114 @@
+<div>
+  <div class="flex justify-between items-center mb-8">
+    <h1 class="text-3xl font-bold text-primary">Choose a Plan</h1>
+    <% if (locals.user) { %>
+      <a href="/dashboard" class="btn-outline">Back to Dashboard</a>
+    <% } else { %>
+      <div class="space-x-2">
+        <a href="/login" class="btn-outline">Login</a>
+        <a href="/" class="btn-outline">Home</a>
+      </div>
+    <% } %>
+  </div>
+  
+  <% if (locals.error) { %>
+    <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-6">
+      <%= error %>
+    </div>
+  <% } %>
+  
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+    <!-- Basic Plan -->
+    <div class="bg-white rounded-lg shadow-md overflow-hidden">
+      <div class="bg-primary p-6 text-white">
+        <h2 class="text-2xl font-bold">Basic Plan</h2>
+        <div class="mt-4">
+          <span class="text-3xl font-bold">$5</span>
+          <span class="text-lg">/month</span>
+        </div>
+      </div>
+      
+      <div class="p-6">
+        <ul class="space-y-3 mb-6">
+          <li class="flex items-center">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-green-500 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+            </svg>
+            Unlimited form submissions
+          </li>
+          <li class="flex items-center">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-green-500 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+            </svg>
+            Up to 10 forms
+          </li>
+          <li class="flex items-center">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-green-500 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+            </svg>
+            Email notifications
+          </li>
+          <li class="flex items-center opacity-50">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-red-500 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+            SMS notifications
+          </li>
+        </ul>
+        
+        <form action="/subscription/create-and-register" method="post">
+          <input type="hidden" name="planType" value="basic">
+          <button type="submit" class="btn-primary w-full">Select Basic Plan</button>
+        </form>
+      </div>
+    </div>
+    
+    <!-- Premium Plan -->
+    <div class="bg-white rounded-lg shadow-md overflow-hidden border-2 border-accent">
+      <div class="bg-accent p-6 text-primary">
+        <div class="flex justify-between items-center">
+          <h2 class="text-2xl font-bold">Premium Plan</h2>
+          <span class="bg-primary text-white text-xs uppercase font-bold py-1 px-2 rounded">Recommended</span>
+        </div>
+        <div class="mt-4">
+          <span class="text-3xl font-bold">$10</span>
+          <span class="text-lg">/month</span>
+        </div>
+      </div>
+      
+      <div class="p-6">
+        <ul class="space-y-3 mb-6">
+          <li class="flex items-center">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-green-500 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+            </svg>
+            Unlimited form submissions
+          </li>
+          <li class="flex items-center">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-green-500 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+            </svg>
+            Unlimited forms
+          </li>
+          <li class="flex items-center">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-green-500 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+            </svg>
+            Email notifications
+          </li>
+          <li class="flex items-center">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-green-500 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+            </svg>
+            SMS notifications
+          </li>
+        </ul>
+        
+        <form action="/subscription/create-and-register" method="post">
+          <input type="hidden" name="planType" value="premium">
+          <button type="submit" class="btn-accent w-full">Select Premium Plan</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div> 

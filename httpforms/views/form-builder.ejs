@@ -4,6 +4,22 @@
     <a href="/dashboard" class="btn-outline">Back to Dashboard</a>
   </div>
   
+  <% if (subscription) { %>
+    <div class="bg-white rounded-lg shadow-md p-4 mb-8">
+      <div class="flex items-center justify-between">
+        <div>
+          <span class="text-sm text-gray-600">Current Plan:</span>
+          <span class="ml-2 font-medium <%= subscription.planType === 'premium' ? 'text-accent' : 'text-primary' %>">
+            <%= subscription.planType === 'premium' ? 'Premium' : 'Basic' %> Plan
+          </span>
+          <% if (subscription.planType === 'premium') { %>
+            <span class="ml-2 bg-accent text-primary text-xs px-2 py-0.5 rounded-full">SMS Notifications Enabled</span>
+          <% } %>
+        </div>
+      </div>
+    </div>
+  <% } %>
+  
   <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
     <!-- Form Builder Controls -->
     <div class="lg:col-span-1">

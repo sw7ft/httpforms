@@ -6,5 +6,55 @@
     "password": "$2b$10$Jy9LZkOFf5HEDGn6rUwLR.nXkt0K.MvF9BX5WSzt7W9sdopXWxdzK",
     "isAdmin": true,
     "createdAt": "2025-04-08T16:13:40.060Z"
+  },
+  {
+    "id": "13a7cd2c-62cd-4675-81c1-717fc60f6062",
+    "name": "troy",
+    "email": "Troy@swiftmedia.ca",
+    "password": "$2b$10$AX9hslocUktyxWrKOTipn.laXBC0jb.ADv8203QUOR2bbq5zXgZhm",
+    "phoneNumber": "+17802409228",
+    "isAdmin": false,
+    "createdAt": "2025-04-09T17:42:13.512Z",
+    "updatedAt": "2025-04-09T17:42:13.512Z"
+  },
+  {
+    "id": "6f032be1-5776-43b7-9dd2-e3c3dd0caa33",
+    "name": "troy",
+    "email": "troy@swiftmedia.ca",
+    "password": "$2b$10$vh.WgZnXapJCsQkSarr6DeIGOsjqCmjJTglAOkAaAkLaYYJidto2.",
+    "phoneNumber": "+123456789",
+    "isAdmin": false,
+    "createdAt": "2025-04-09T17:44:38.561Z",
+    "updatedAt": "2025-04-09T17:44:38.561Z"
+  },
+  {
+    "id": "3e84c228-c2e8-438d-844f-aaf65c094f62",
+    "name": "troys",
+    "email": "troys@swiftmediac.a",
+    "password": "$2b$10$Sdjpr8QAR5n0PqKeTCUU4eAolbLbvPPRgTFMOlAKFxmfqRdK13G7q",
+    "phoneNumber": null,
+    "isAdmin": false,
+    "createdAt": "2025-04-09T17:47:14.492Z",
+    "updatedAt": "2025-04-09T17:47:14.492Z"
+  },
+  {
+    "id": "73f1812d-e96c-4094-aef5-27887d5cc84f",
+    "name": "troy",
+    "email": "troy@troy.com",
+    "password": "$2b$10$fLVtyfdqzsdjIT9FSE0DHeABGEKN14y4aHjvuANol6mbwQ1CnE0Nq",
+    "phoneNumber": "+1234567890",
+    "isAdmin": false,
+    "createdAt": "2025-04-09T17:59:55.081Z",
+    "updatedAt": "2025-04-09T17:59:55.081Z"
+  },
+  {
+    "id": "11c00d12-6446-4e6d-8c59-c6dda9440d8c",
+    "name": "matt potter",
+    "email": "matt@swiftmedia.ca",
+    "password": "$2b$10$iCJMmYoe8h61.qdF920Pb.6aIZ1nT9pf9TcY0Bo1DsuVa8XcC9DgW",
+    "phoneNumber": "+17802409228",
+    "isAdmin": false,
+    "createdAt": "2025-04-09T18:35:17.382Z",
+    "updatedAt": "2025-04-09T18:35:17.382Z"
   }
 ]

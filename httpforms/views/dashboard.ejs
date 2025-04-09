@@ -1,8 +1,50 @@
 <div>
   <div class="flex justify-between items-center mb-8">
     <h1 class="text-3xl font-bold text-primary">Your Forms</h1>
-    <a href="/form/new" class="btn-accent">Create New Form</a>
+    <div class="flex gap-2">
+      <% if (!subscription) { %>
+        <a href="/plans" class="btn-accent">Choose a Plan</a>
+      <% } else { %>
+        <% if (subscription.planType === 'basic') { %>
+          <a href="/plans?upgrade=true" class="btn-outline flex items-center">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18" />
+            </svg>
+            Upgrade to Premium
+          </a>
+        <% } %>
+        <a href="/account#subscription" class="btn-outline">Manage Subscription</a>
+      <% } %>
+      <a href="/form/new" class="btn-accent">Create New Form</a>
+    </div>
   </div>
+  
+  <% if (subscription) { %>
+    <div class="bg-white rounded-lg shadow-md p-4 mb-8">
+      <div class="flex items-center justify-between">
+        <div>
+          <span class="text-sm text-gray-600">Current Plan:</span>
+          <span class="ml-2 font-medium <%= subscription.planType === 'premium' ? 'text-accent' : 'text-primary' %>">
+            <%= subscription.planType === 'premium' ? 'Premium' : 'Basic' %> Plan
+          </span>
+          <% if (subscription.planType === 'premium') { %>
+            <span class="ml-2 bg-accent text-primary text-xs px-2 py-0.5 rounded-full">SMS Notifications Enabled</span>
+          <% } %>
+        </div>
+        <a href="/account#subscription" class="text-primary hover:text-accent text-sm font-medium">View Details</a>
+      </div>
+    </div>
+  <% } else { %>
+    <div class="bg-white rounded-lg shadow-md p-4 mb-8">
+      <div class="flex items-center justify-between">
+        <div class="text-gray-600">
+          <span>You don't have an active subscription. </span>
+          <span class="text-primary">Choose a plan to get started!</span>
+        </div>
+        <a href="/plans" class="btn-accent">View Plans</a>
+      </div>
+    </div>
+  <% } %>
   
   <% if (forms && forms.length > 0) { %>
     <div class="grid gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">

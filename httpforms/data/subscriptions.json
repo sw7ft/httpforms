@@ -1,0 +1,30 @@
+[
+  {
+    "id": "cbd86a27-5b8e-4e48-9069-c0133babad3a",
+    "userId": "3e84c228-c2e8-438d-844f-aaf65c094f62",
+    "stripeSubscriptionId": "sub_1RC2ipJHz5yztf7NRgk3HBQf",
+    "planType": "basic",
+    "status": "active",
+    "createdAt": "2025-04-09T17:47:37.948Z",
+    "updatedAt": "2025-04-09T17:47:37.948Z"
+  },
+  {
+    "id": "e3242641-8aae-488c-a2c3-0934d066b387",
+    "userId": "73f1812d-e96c-4094-aef5-27887d5cc84f",
+    "stripeSubscriptionId": "sub_1RC2vCJHz5yztf7N843w0ANa",
+    "planType": "basic",
+    "status": "active",
+    "createdAt": "2025-04-09T18:00:25.163Z",
+    "updatedAt": "2025-04-09T18:12:41.297Z",
+    "cancelAt": "2025-05-09T18:12:41.297Z"
+  },
+  {
+    "id": "7c6e0daa-90fd-46b5-a02c-dc9285b2b460",
+    "userId": "11c00d12-6446-4e6d-8c59-c6dda9440d8c",
+    "stripeSubscriptionId": "sub_1RC3TTJHz5yztf7NPJlcaTdi",
+    "planType": "premium",
+    "status": "active",
+    "createdAt": "2025-04-09T18:35:49.823Z",
+    "updatedAt": "2025-04-09T18:35:49.823Z"
+  }
+]
