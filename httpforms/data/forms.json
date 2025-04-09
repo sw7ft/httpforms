@@ -135,12 +135,12 @@
     "updatedAt": "2025-04-09T18:02:15.018Z"
   },
   {
-    "id": "04274b72-b2a3-4f8e-8e12-4d4f3074bfad",
+    "id": "da74afa7-943f-48a3-8d5f-618f4dbc8cc0",
     "userId": "11c00d12-6446-4e6d-8c59-c6dda9440d8c",
-    "name": "yrdy",
+    "name": "form",
     "fields": [
       {
-        "id": "mpaysknbjd",
+        "id": "0cdpcqksrqha",
         "type": "text",
         "label": "Text Field",
         "name": "text_field",
@@ -149,22 +149,19 @@
         "options": []
       },
       {
-        "id": "fmc5pxi3tib",
+        "id": "628gvwfki14",
+        "type": "email",
+        "label": "Email Address",
+        "name": "email",
+        "placeholder": "",
+        "required": false,
+        "options": []
+      },
+      {
+        "id": "sosru9lv08",
         "type": "select",
         "label": "Select Option",
         "name": "select_option",
-        "placeholder": "",
-        "required": false,
-        "options": [
-          "Option 1",
-          "Option 2"
-        ]
-      },
-      {
-        "id": "knpkba5gbd",
-        "type": "radio",
-        "label": "Radio Options",
-        "name": "radio_options",
         "placeholder": "",
         "required": false,
         "options": [
@@ -176,7 +173,7 @@
     "domains": [
       "forensicfive.com"
     ],
-    "createdAt": "2025-04-09T18:36:10.904Z",
-    "updatedAt": "2025-04-09T18:36:10.904Z"
+    "createdAt": "2025-04-09T19:54:36.875Z",
+    "updatedAt": "2025-04-09T19:54:36.875Z"
   }
 ]

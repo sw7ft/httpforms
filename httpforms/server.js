@@ -608,7 +608,7 @@ app.post('/api/submit/:formId', async (req, res) => {
       
       if (userSubscription && formOwner.phoneNumber) {
         // Send SMS notification
-        const message = `New submission for ${form.name} from ${domain}. Check your email for details. View at httpforms.com`;
+        const message = `New submission for ${form.name} from ${domain}. Check your email for details.`;
         await sendSmsNotification(form.userId, message);
       }
     }
