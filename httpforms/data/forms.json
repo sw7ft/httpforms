@@ -135,30 +135,21 @@
     "updatedAt": "2025-04-09T18:02:15.018Z"
   },
   {
-    "id": "da74afa7-943f-48a3-8d5f-618f4dbc8cc0",
+    "id": "fc792d97-1c30-4118-905e-10bb3f991b6b",
     "userId": "11c00d12-6446-4e6d-8c59-c6dda9440d8c",
-    "name": "form",
+    "name": "beeboop",
     "fields": [
       {
-        "id": "0cdpcqksrqha",
+        "id": "pvoffju4b3m",
         "type": "text",
-        "label": "Text Field",
-        "name": "text_field",
-        "placeholder": "",
+        "label": "Name",
+        "name": "name_field",
+        "placeholder": "please put name here",
         "required": false,
         "options": []
       },
       {
-        "id": "628gvwfki14",
-        "type": "email",
-        "label": "Email Address",
-        "name": "email",
-        "placeholder": "",
-        "required": false,
-        "options": []
-      },
-      {
-        "id": "sosru9lv08",
+        "id": "l7bsb2ndg6",
         "type": "select",
         "label": "Select Option",
         "name": "select_option",
@@ -168,12 +159,33 @@
           "Option 1",
           "Option 2"
         ]
+      },
+      {
+        "id": "f1wrpog2t8d",
+        "type": "checkbox",
+        "label": "Checkbox Options",
+        "name": "checkbox_options",
+        "placeholder": "",
+        "required": false,
+        "options": []
+      },
+      {
+        "id": "ne1e8q5ms7",
+        "type": "radio",
+        "label": "Radio Options",
+        "name": "radio_options",
+        "placeholder": "",
+        "required": false,
+        "options": [
+          "Option 1",
+          "Option 2"
+        ]
       }
     ],
     "domains": [
-      "forensicfive.com"
+      "premiumrentals.ca"
     ],
-    "createdAt": "2025-04-09T19:54:36.875Z",
-    "updatedAt": "2025-04-09T19:54:36.875Z"
+    "createdAt": "2025-04-28T22:02:33.483Z",
+    "updatedAt": "2025-04-28T22:02:42.589Z"
   }
 ]

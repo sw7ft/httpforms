@@ -28,27 +28,5 @@
     },
     "domain": "forensicfive.com",
     "createdAt": "2025-04-09T18:08:24.945Z"
-  },
-  {
-    "id": "c48ec84a-6690-471e-a224-e8836eb286ed",
-    "formId": "da74afa7-943f-48a3-8d5f-618f4dbc8cc0",
-    "data": {
-      "text_field": "matt",
-      "email": "matt@test.com",
-      "select_option": "Option 1"
-    },
-    "domain": "forensicfive.com",
-    "createdAt": "2025-04-09T19:55:21.673Z"
-  },
-  {
-    "id": "7feec06d-4e67-4dd0-91db-b70b84026601",
-    "formId": "da74afa7-943f-48a3-8d5f-618f4dbc8cc0",
-    "data": {
-      "text_field": "tes",
-      "email": "test@test.com",
-      "select_option": "Option 2"
-    },
-    "domain": "forensicfive.com",
-    "createdAt": "2025-04-09T19:56:10.028Z"
   }
 ]
