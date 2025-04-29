@@ -180,12 +180,111 @@
           "Option 1",
           "Option 2"
         ]
+      },
+      {
+        "id": "gd53z25etot",
+        "type": "captcha",
+        "label": "Security Check",
+        "name": "captcha",
+        "placeholder": "",
+        "required": true,
+        "options": [],
+        "difficulty": "easy",
+        "mathOnly": true,
+        "enableAudio": true
       }
     ],
     "domains": [
       "premiumrentals.ca"
     ],
     "createdAt": "2025-04-28T22:02:33.483Z",
-    "updatedAt": "2025-04-28T22:02:42.589Z"
+    "updatedAt": "2025-04-28T22:38:36.397Z"
+  },
+  {
+    "id": "52ddb22d-a73d-485a-8592-de66c43ad509",
+    "userId": "11c00d12-6446-4e6d-8c59-c6dda9440d8c",
+    "name": "Westar Oilfield Rentals",
+    "fields": [
+      {
+        "id": "60m0tcia7h8",
+        "type": "text",
+        "label": "Contact Name",
+        "name": "contact_name",
+        "placeholder": "",
+        "required": true,
+        "options": []
+      },
+      {
+        "id": "edyth1opkso",
+        "type": "text",
+        "label": "Company Name",
+        "name": "company_name",
+        "placeholder": "",
+        "required": true,
+        "options": []
+      },
+      {
+        "id": "kwxtub999q8",
+        "type": "email",
+        "label": "Email Address",
+        "name": "email",
+        "placeholder": "",
+        "required": true,
+        "options": []
+      },
+      {
+        "id": "8ixbpnu533p",
+        "type": "text",
+        "label": "Phone:",
+        "name": "text_field",
+        "placeholder": "",
+        "required": true,
+        "options": []
+      },
+      {
+        "id": "wm2cugmdd6",
+        "type": "select",
+        "label": "Inquiry Type",
+        "name": "select_option",
+        "placeholder": "",
+        "required": false,
+        "options": [
+          "Equipment Rental",
+          "Trucking Services",
+          "Information Request",
+          "Customer Support",
+          "Others"
+        ]
+      },
+      {
+        "id": "257vxl29zl9",
+        "type": "textarea",
+        "label": "Message",
+        "name": "message",
+        "placeholder": "",
+        "required": true,
+        "options": []
+      },
+      {
+        "id": "47h1cpc8aj8",
+        "type": "captcha",
+        "label": "Security Check",
+        "name": "captcha",
+        "placeholder": "",
+        "required": true,
+        "options": [],
+        "difficulty": "easy",
+        "mathOnly": true,
+        "enableAudio": true
+      }
+    ],
+    "domains": [
+      "westaroilfieldrentals.com"
+    ],
+    "createdAt": "2025-04-28T22:41:56.463Z",
+    "updatedAt": "2025-04-29T22:26:07.327Z",
+    "notificationEmails": [
+      "swifttech1@gmail.com"
+    ]
   }
 ]

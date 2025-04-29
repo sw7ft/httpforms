@@ -37,6 +37,12 @@
           <p class="mt-1 text-xs text-gray-500">Leave empty to allow all domains, or specify comma-separated domains</p>
         </div>
         
+        <div class="mb-6">
+          <label for="notification-emails" class="form-label">Additional Notification Emails</label>
+          <input type="text" id="notification-emails" class="form-input" value="<%= form.notificationEmails ? form.notificationEmails.join(', ') : '' %>" placeholder="email1@example.com, email2@example.com">
+          <p class="mt-1 text-xs text-gray-500">Comma-separated list of additional email addresses to receive form notifications</p>
+        </div>
+        
         <h3 class="text-lg font-bold text-primary mb-3 mt-8">Add Fields</h3>
         <div class="space-y-2">
           <button data-type="text" class="add-field-btn btn-outline w-full justify-center mb-2">
@@ -56,6 +62,9 @@
           </button>
           <button data-type="radio" class="add-field-btn btn-outline w-full justify-center mb-2">
             Radio Buttons
+          </button>
+          <button data-type="captcha" class="add-field-btn btn-outline w-full justify-center mb-2">
+            Simple CAPTCHA
           </button>
         </div>
         
@@ -146,6 +155,13 @@
         options: fieldType === 'select' || fieldType === 'radio' ? ['Option 1', 'Option 2'] : []
       };
       
+      // For CAPTCHA fields, add specific properties
+      if (fieldType === 'captcha') {
+        newField.difficulty = 'easy'; // easy, medium, hard
+        newField.mathOnly = true; // true for math, false for math + text
+        newField.enableAudio = true; // enable audio version for accessibility
+      }
+      
       formFields.push(newField);
       renderFormFields();
       openFieldSettings(formFields.length - 1);
@@ -156,6 +172,7 @@
   document.getElementById('save-form-btn').addEventListener('click', async function() {
     const formName = document.getElementById('form-name').value.trim();
     const allowedDomains = document.getElementById('allowed-domains').value.trim();
+    const notificationEmails = document.getElementById('notification-emails').value.trim();
     
     if (!formName) {
       alert('Please enter a form name');
@@ -177,7 +194,8 @@
           id: formData.id || '',
           name: formName,
           fields: JSON.stringify(formFields),
-          domains: allowedDomains
+          domains: allowedDomains,
+          notificationEmails: notificationEmails
         })
       });
       
@@ -215,15 +233,49 @@
         <label class="form-label">Field Name</label>
         <input type="text" id="field-name" class="form-input" value="\${field.name}">
       </div>
-      <div>
-        <label class="form-label">Placeholder</label>
-        <input type="text" id="field-placeholder" class="form-input" value="\${field.placeholder || ''}">
-      </div>
-      <div class="flex items-center">
-        <input type="checkbox" id="field-required" class="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded" \${field.required ? 'checked' : ''}>
-        <label for="field-required" class="ml-2 block text-sm text-gray-700">Required field</label>
-      </div>
     \`;
+    
+    // Don't show placeholder for certain field types
+    if (field.type !== 'captcha' && field.type !== 'checkbox' && field.type !== 'radio') {
+      settingsHTML += \`
+        <div>
+          <label class="form-label">Placeholder</label>
+          <input type="text" id="field-placeholder" class="form-input" value="\${field.placeholder || ''}">
+        </div>
+      \`;
+    }
+    
+    // Don't show required checkbox for CAPTCHA (always required)
+    if (field.type !== 'captcha') {
+      settingsHTML += \`
+        <div class="flex items-center">
+          <input type="checkbox" id="field-required" class="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded" \${field.required ? 'checked' : ''}>
+          <label for="field-required" class="ml-2 block text-sm text-gray-700">Required field</label>
+        </div>
+      \`;
+    } else {
+      // CAPTCHA specific settings
+      settingsHTML += \`
+        <div class="mt-4">
+          <label class="form-label">CAPTCHA Difficulty</label>
+          <select id="captcha-difficulty" class="form-input">
+            <option value="easy" \${field.difficulty === 'easy' ? 'selected' : ''}>Easy (e.g., 2 + 3)</option>
+            <option value="medium" \${field.difficulty === 'medium' ? 'selected' : ''}>Medium (e.g., 12 + 15)</option>
+            <option value="hard" \${field.difficulty === 'hard' ? 'selected' : ''}>Hard (e.g., 24 + 37)</option>
+          </select>
+        </div>
+        <div class="flex items-center mt-4">
+          <input type="checkbox" id="captcha-math-only" class="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded" \${field.mathOnly ? 'checked' : ''}>
+          <label for="captcha-math-only" class="ml-2 block text-sm text-gray-700">Math problems only</label>
+        </div>
+        <p class="text-xs text-gray-500 mt-1">If unchecked, will also include text-based challenges</p>
+        <div class="flex items-center mt-4">
+          <input type="checkbox" id="captcha-enable-audio" class="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded" \${field.enableAudio ? 'checked' : ''}>
+          <label for="captcha-enable-audio" class="ml-2 block text-sm text-gray-700">Enable audio CAPTCHA</label>
+        </div>
+        <p class="text-xs text-gray-500 mt-1">Adds an audio button for accessibility (works with math problems only)</p>
+      \`;
+    }
     
     // Add options for select, checkbox, or radio fields
     if (field.type === 'select' || field.type === 'radio' || field.type === 'checkbox') {
@@ -309,8 +361,21 @@
       const field = formFields[selectedFieldIndex];
       field.label = document.getElementById('field-label').value;
       field.name = document.getElementById('field-name').value;
-      field.placeholder = document.getElementById('field-placeholder').value;
-      field.required = document.getElementById('field-required').checked;
+      
+      if (field.type !== 'captcha' && field.type !== 'checkbox' && field.type !== 'radio') {
+        field.placeholder = document.getElementById('field-placeholder').value;
+      }
+      
+      if (field.type !== 'captcha') {
+        field.required = document.getElementById('field-required').checked;
+      } else {
+        // CAPTCHA is always required
+        field.required = true;
+        // Save CAPTCHA specific settings
+        field.difficulty = document.getElementById('captcha-difficulty').value;
+        field.mathOnly = document.getElementById('captcha-math-only').checked;
+        field.enableAudio = document.getElementById('captcha-enable-audio').checked;
+      }
       
       // Save options for select, checkbox, or radio fields
       if (field.type === 'select' || field.type === 'radio' || field.type === 'checkbox') {
@@ -396,6 +461,28 @@
             \`;
           });
           break;
+        case 'captcha':
+          // Show a sample CAPTCHA in the preview
+          const captchaExample = getCaptchaExample(field.difficulty);
+          fieldHTML += \`
+            <div class="bg-gray-100 p-3 rounded mt-2 mb-3">
+              <p class="text-sm font-medium">\${captchaExample.question}</p>
+              \${field.enableAudio ? \`
+                <button type="button" class="mt-2 bg-primary text-white py-1 px-2 rounded text-xs flex items-center" 
+                  onclick="previewCaptchaAudio('\${captchaExample.question}', event)">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="currentColor" viewBox="0 0 16 16">
+                    <path d="M11.536 14.01A8.473 8.473 0 0 0 14.026 8a8.473 8.473 0 0 0-2.49-6.01l-.708.707A7.476 7.476 0 0 1 13.025 8c0 2.071-.84 3.946-2.197 5.303l.708.707z"/>
+                    <path d="M10.121 12.596A6.48 6.48 0 0 0 12.025 8a6.48 6.48 0 0 0-1.904-4.596l-.707.707A5.483 5.483 0 0 1 11.025 8a5.483 5.483 0 0 1-1.61 3.89l.706.706z"/>
+                    <path d="M8.707 11.182A4.486 4.486 0 0 0 10.025 8a4.486 4.486 0 0 0-1.318-3.182L8 5.525A3.489 3.489 0 0 1 9.025 8 3.49 3.49 0 0 1 8 10.475l.707.707z"/>
+                    <path d="M6.717 3.55A.5.5 0 0 1 7 4v8a.5.5 0 0 1-.812.39L3.825 10.5H1.5A.5.5 0 0 1 1 10V6a.5.5 0 0 1 .5-.5h2.325l2.363-1.89a.5.5 0 0 1 .529-.06z"/>
+                  </svg>
+                  Listen
+                </button>\` : ''}
+            </div>
+            <input type="text" class="form-input" placeholder="Enter your answer" required>
+            <p class="text-xs text-gray-500 mt-1">This will generate a new challenge for each visitor</p>
+          \`;
+          break;
       }
       
       fieldElement.innerHTML = fieldHTML;
@@ -421,6 +508,7 @@
       case 'select': return 'Select Option';
       case 'checkbox': return 'Checkbox Options';
       case 'radio': return 'Radio Options';
+      case 'captcha': return 'Security Check';
       default: return 'Field';
     }
   }
@@ -433,7 +521,45 @@
       case 'select': return 'select_option';
       case 'checkbox': return 'checkbox_options';
       case 'radio': return 'radio_options';
+      case 'captcha': return 'captcha';
       default: return 'field';
+    }
+  }
+  
+  function getCaptchaExample(difficulty) {
+    let num1, num2;
+    
+    switch (difficulty) {
+      case 'easy':
+        num1 = Math.floor(Math.random() * 5) + 1; // 1-5
+        num2 = Math.floor(Math.random() * 5) + 1; // 1-5
+        break;
+      case 'medium':
+        num1 = Math.floor(Math.random() * 20) + 10; // 10-29
+        num2 = Math.floor(Math.random() * 20) + 10; // 10-29
+        break;
+      case 'hard':
+      default:
+        num1 = Math.floor(Math.random() * 50) + 20; // 20-69
+        num2 = Math.floor(Math.random() * 50) + 20; // 20-69
+        break;
+    }
+    
+    return {
+      question: \`What is \${num1} + \${num2}?\`,
+      answer: num1 + num2
+    };
+  }
+  
+  // Play audio version of CAPTCHA in the preview
+  function previewCaptchaAudio(question, event) {
+    event.stopPropagation(); // Prevent event from bubbling up and opening the field settings
+    if ('speechSynthesis' in window) {
+      const utterance = new SpeechSynthesisUtterance(question);
+      utterance.rate = 0.9; // Slightly slower
+      window.speechSynthesis.speak(utterance);
+    } else {
+      alert('Your browser does not support speech synthesis.');
     }
   }
 </script>

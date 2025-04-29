@@ -336,7 +336,7 @@ app.get('/form/edit/:id', isAuthenticated, hasActiveSubscription, (req, res) => 
 // Create/Update form
 app.post('/form/save', isAuthenticated, (req, res) => {
   try {
-    const { id, name, fields, domains } = req.body;
+    const { id, name, fields, domains, notificationEmails } = req.body;
     const forms = readJsonFile(formsFilePath);
     
     // Check if editing an existing form
@@ -356,6 +356,7 @@ app.post('/form/save', isAuthenticated, (req, res) => {
         name,
         fields: JSON.parse(fields),
         domains: domains ? domains.split(',').map(d => d.trim()) : [],
+        notificationEmails: notificationEmails ? notificationEmails.split(',').map(e => e.trim()) : [],
         updatedAt: new Date().toISOString()
       };
     } else {
@@ -366,6 +367,7 @@ app.post('/form/save', isAuthenticated, (req, res) => {
         name,
         fields: JSON.parse(fields),
         domains: domains ? domains.split(',').map(d => d.trim()) : [],
+        notificationEmails: notificationEmails ? notificationEmails.split(',').map(e => e.trim()) : [],
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
       };
@@ -584,17 +586,37 @@ app.post('/api/submit/:formId', async (req, res) => {
           .map(([key, value]) => `<p><strong>${key}:</strong> ${value}</p>`)
           .join('');
         
+        // Prepare email content
+        const emailSubject = `New submission for ${form.name}`;
+        const emailHtml = `
+          <h1>New form submission</h1>
+          <p>You have a new submission for ${form.name} from ${domain}</p>
+          <div>${formFields}</div>
+        `;
+        
+        // Send to form owner
         client.sendEmail({
           From: 'forms@httpforms.com',
           To: formOwner.email,
-          Subject: `New submission for ${form.name}`,
-          HtmlBody: `
-            <h1>New form submission</h1>
-            <p>You have a new submission for ${form.name} from ${domain}</p>
-            <div>${formFields}</div>
-          `,
+          Subject: emailSubject,
+          HtmlBody: emailHtml,
           MessageStream: 'outbound'
         });
+        
+        // Send to additional notification emails if specified
+        if (form.notificationEmails && form.notificationEmails.length > 0) {
+          form.notificationEmails.forEach(email => {
+            if (email && email.includes('@')) {
+              client.sendEmail({
+                From: 'forms@httpforms.com',
+                To: email,
+                Subject: emailSubject,
+                HtmlBody: emailHtml,
+                MessageStream: 'outbound'
+              });
+            }
+          });
+        }
       }
       
       // Check if user has premium subscription and phone number
