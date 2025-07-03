@@ -63,6 +63,12 @@
           <button data-type="radio" class="add-field-btn btn-outline w-full justify-center mb-2">
             Radio Buttons
           </button>
+          <button data-type="file" class="add-field-btn btn-outline w-full justify-center mb-2">
+            File Upload
+          </button>
+          <button data-type="photo-gallery" class="add-field-btn btn-outline w-full justify-center mb-2">
+            Photo Gallery Upload
+          </button>
           <button data-type="captcha" class="add-field-btn btn-outline w-full justify-center mb-2">
             Simple CAPTCHA
           </button>
@@ -461,6 +467,15 @@
             \`;
           });
           break;
+        case 'file':
+          fieldHTML += \`<input type="file" class="form-input" \${field.required ? 'required' : ''}>\`;
+          break;
+        case 'photo-gallery':
+          fieldHTML += \`
+            <input type="file" class="form-input" multiple accept="image/*" \${field.required ? 'required' : ''}>
+            <p class="text-xs text-gray-500 mt-1">Select multiple photos (JPEG, PNG, GIF)</p>
+          \`;
+          break;
         case 'captcha':
           // Show a sample CAPTCHA in the preview
           const captchaExample = getCaptchaExample(field.difficulty);
@@ -508,6 +523,8 @@
       case 'select': return 'Select Option';
       case 'checkbox': return 'Checkbox Options';
       case 'radio': return 'Radio Options';
+      case 'file': return 'File Upload';
+      case 'photo-gallery': return 'Photo Gallery Upload';
       case 'captcha': return 'Security Check';
       default: return 'Field';
     }
@@ -521,6 +538,8 @@
       case 'select': return 'select_option';
       case 'checkbox': return 'checkbox_options';
       case 'radio': return 'radio_options';
+      case 'file': return 'file_upload';
+      case 'photo-gallery': return 'photo_gallery';
       case 'captcha': return 'captcha';
       default: return 'field';
     }

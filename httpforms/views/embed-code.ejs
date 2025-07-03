@@ -266,6 +266,27 @@
                   generateCaptcha(field);
                 }, 100);
                 break;
+              case 'file':
+                input = document.createElement('input');
+                input.type = 'file';
+                input.multiple = true;
+                input.accept = '.jpg,.jpeg,.png,.gif,.pdf,.doc,.docx,.txt,.csv,.xls,.xlsx,.zip,.rar';
+                break;
+              case 'photo-gallery':
+                input = document.createElement('input');
+                input.type = 'file';
+                input.multiple = true;
+                input.accept = 'image/*';
+                
+                // Add helper text for photo gallery
+                const helperText = document.createElement('p');
+                helperText.textContent = 'Select multiple photos (JPEG, PNG, GIF)';
+                helperText.style.fontSize = '12px';
+                helperText.style.color = '#666';
+                helperText.style.marginTop = '4px';
+                helperText.style.marginBottom = '0';
+                fieldContainer.appendChild(helperText);
+                break;
             }
             
             if (input) {
@@ -335,41 +356,78 @@
             submitButton.disabled = true;
             submitButton.textContent = 'Submitting...';
             
-            // Collect form data
-            const formData = {};
-            const formElements = Array.from(formEl.elements);
+            // Check if form has file inputs
+            const hasFiles = form.fields.some(field => field.type === 'file' || field.type === 'photo-gallery');
+            let requestBody;
+            let headers = {};
             
-            formElements.forEach(element => {
-              if (element.name && element.name !== '' && element.tagName !== 'BUTTON') {
-                // Skip CAPTCHA data fields
-                if (element.name.endsWith('_data') || element.name.endsWith('_answer')) {
-                  return;
-                }
-                
-                if (element.type === 'checkbox') {
-                  if (element.checked) {
-                    if (!formData[element.name]) {
-                      formData[element.name] = [];
+            if (hasFiles) {
+              // Use FormData for file uploads
+              const formData = new FormData();
+              
+              // Add regular form fields
+              const formElements = Array.from(formEl.elements);
+                              formElements.forEach(element => {
+                  if (element.name && element.name !== '' && element.tagName !== 'BUTTON' && element.type !== 'file') {
+                    if (element.type === 'checkbox') {
+                      if (element.checked) {
+                        formData.append(element.name, element.value);
+                      }
+                    } else if (element.type === 'radio') {
+                      if (element.checked) {
+                        formData.append(element.name, element.value);
+                      }
+                    } else {
+                      formData.append(element.name, element.value);
                     }
-                    formData[element.name].push(element.value);
                   }
-                } else if (element.type === 'radio') {
-                  if (element.checked) {
+                });
+              
+              // Add file inputs with 'attachments' name for multer
+              const fileInputs = formEl.querySelectorAll('input[type="file"]');
+              fileInputs.forEach(fileInput => {
+                if (fileInput.files.length > 0) {
+                  for (let i = 0; i < fileInput.files.length; i++) {
+                    formData.append('attachments', fileInput.files[i]);
+                  }
+                }
+              });
+              
+              requestBody = formData;
+              // Don't set Content-Type header - let browser set it with boundary
+            } else {
+              // Use JSON for regular form data
+              const formData = {};
+              const formElements = Array.from(formEl.elements);
+              
+              formElements.forEach(element => {
+                if (element.name && element.name !== '' && element.tagName !== 'BUTTON') {
+                  if (element.type === 'checkbox') {
+                    if (element.checked) {
+                      if (!formData[element.name]) {
+                        formData[element.name] = [];
+                      }
+                      formData[element.name].push(element.value);
+                    }
+                  } else if (element.type === 'radio') {
+                    if (element.checked) {
+                      formData[element.name] = element.value;
+                    }
+                  } else if (element.type !== 'file') {
                     formData[element.name] = element.value;
                   }
-                } else {
-                  formData[element.name] = element.value;
                 }
-              }
-            });
+              });
+              
+              requestBody = JSON.stringify(formData);
+              headers['Content-Type'] = 'application/json';
+            }
             
             // Submit form data
             fetch('<%= baseUrl %>/api/submit/<%= form.id %>', {
               method: 'POST',
-              headers: {
-                'Content-Type': 'application/json'
-              },
-              body: JSON.stringify(formData)
+              headers: headers,
+              body: requestBody
             })
               .then(response => response.json())
               .then(result => {
@@ -789,6 +847,27 @@
                 setTimeout(() => {
                   generateCaptcha(field);
                 }, 100);
+                break;
+              case 'file':
+                input = document.createElement('input');
+                input.type = 'file';
+                input.multiple = true;
+                input.accept = '.jpg,.jpeg,.png,.gif,.pdf,.doc,.docx,.txt,.csv,.xls,.xlsx,.zip,.rar';
+                break;
+              case 'photo-gallery':
+                input = document.createElement('input');
+                input.type = 'file';
+                input.multiple = true;
+                input.accept = 'image/*';
+                
+                // Add helper text for photo gallery in preview
+                const previewHelperText = document.createElement('p');
+                previewHelperText.textContent = 'Select multiple photos (JPEG, PNG, GIF)';
+                previewHelperText.style.fontSize = '12px';
+                previewHelperText.style.color = '#666';
+                previewHelperText.style.marginTop = '4px';
+                previewHelperText.style.marginBottom = '0';
+                fieldContainer.appendChild(previewHelperText);
                 break;
             }
             

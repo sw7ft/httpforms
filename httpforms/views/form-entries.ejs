@@ -4,7 +4,7 @@
     <a href="/dashboard" class="btn-outline">Back to Dashboard</a>
   </div>
   
-  <% if (entries && entries.length > 0) { %>
+  <% if (entries && Array.isArray(entries) && entries.length > 0) { %>
     <div class="bg-white rounded-lg shadow-md overflow-hidden">
       <div class="overflow-x-auto">
         <table class="min-w-full divide-y divide-gray-200">
@@ -19,9 +19,13 @@
               <% 
                 // Get unique field names across all entries
                 const allFields = new Set();
-                entries.forEach(entry => {
-                  Object.keys(entry.data).forEach(key => allFields.add(key));
-                });
+                if (entries && Array.isArray(entries)) {
+                  entries.forEach(entry => {
+                    if (entry && entry.data && typeof entry.data === 'object') {
+                      Object.keys(entry.data).forEach(key => allFields.add(key));
+                    }
+                  });
+                }
                 const fieldNames = Array.from(allFields);
                 
                 // Render column headers for each field
@@ -31,42 +35,59 @@
                   <%= field %>
                 </th>
               <% }); %>
+              <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Attachments
+              </th>
               <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Actions
               </th>
             </tr>
           </thead>
           <tbody class="bg-white divide-y divide-gray-200">
-            <% entries.forEach(entry => { %>
+            <% if (entries && Array.isArray(entries)) {
+                 entries.forEach(entry => { 
+                   if (entry) { %>
               <tr>
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  <%= new Date(entry.createdAt).toLocaleString() %>
+                  <%= entry.createdAt ? new Date(entry.createdAt).toLocaleString() : 'N/A' %>
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  <%= entry.domain %>
+                  <%= entry.domain || 'N/A' %>
                 </td>
                 <% 
                   // Render each field value
                   fieldNames.forEach(field => {
-                    const value = entry.data[field] || '-';
+                    const value = (entry.data && entry.data[field]) ? entry.data[field] : '-';
                     const displayValue = Array.isArray(value) ? value.join(', ') : value;
                 %>
                   <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     <%= displayValue %>
                   </td>
                 <% }); %>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  <% if (entry.attachments && entry.attachments.length > 0) { %>
+                    <span class="bg-blue-100 text-blue-800 text-xs font-medium px-2 py-1 rounded">
+                      <%= entry.attachments.length %> file<%= entry.attachments.length > 1 ? 's' : '' %>
+                    </span>
+                  <% } else { %>
+                    -
+                  <% } %>
+                </td>
                 <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                   <button 
                     class="view-entry-btn text-primary hover:text-primary-dark" 
-                    data-entry-id="<%= entry.id %>"
-                    data-entry-date="<%= new Date(entry.createdAt).toLocaleString() %>"
-                    data-entry-domain="<%= entry.domain %>"
-                    data-entry-data="<%= encodeURIComponent(JSON.stringify(entry.data)) %>">
+                    data-entry-id="<%= entry.id || '' %>"
+                    data-entry-date="<%= entry.createdAt ? new Date(entry.createdAt).toLocaleString() : 'N/A' %>"
+                    data-entry-domain="<%= entry.domain || 'N/A' %>"
+                    data-entry-data="<%= encodeURIComponent(JSON.stringify(entry.data || {})) %>"
+                    data-entry-attachments="<%= encodeURIComponent(JSON.stringify(entry.attachments || [])) %>">
                     View Details
                   </button>
                 </td>
               </tr>
-            <% }); %>
+            <% }
+                 });
+               } %>
           </tbody>
         </table>
       </div>
@@ -99,7 +120,7 @@
 
 <!-- Entry Details Modal -->
 <div id="entry-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-  <div class="bg-white rounded-lg max-w-lg w-full p-6">
+  <div class="bg-white rounded-lg max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto">
     <div class="flex justify-between items-center mb-4">
       <h3 class="text-xl font-bold text-primary">Entry Details</h3>
       <button id="close-entry-modal" class="text-gray-500 hover:text-gray-800">
@@ -114,7 +135,7 @@
       <p class="text-sm text-gray-500" id="entry-domain-display"></p>
     </div>
     
-    <div id="entry-data" class="space-y-4 max-h-96 overflow-y-auto">
+    <div id="entry-data" class="space-y-4 max-h-[60vh] overflow-y-auto">
       <!-- Will be populated dynamically -->
     </div>
     
@@ -124,23 +145,33 @@
   </div>
 </div>
 
-<% const scripts = `
+<% scripts = `
 <script>
-  // View entry details functionality
-  const viewButtons = document.querySelectorAll('.view-entry-btn');
-  const entryModal = document.getElementById('entry-modal');
-  const closeEntryModal = document.getElementById('close-entry-modal');
-  const closeEntryBtn = document.getElementById('close-entry-btn');
-  const entryDateDisplay = document.getElementById('entry-date-display');
-  const entryDomainDisplay = document.getElementById('entry-domain-display');
-  const entryDataContainer = document.getElementById('entry-data');
-  
-  viewButtons.forEach(button => {
-    button.addEventListener('click', function() {
-      const entryId = this.dataset.entryId;
-      const entryDate = this.dataset.entryDate;
-      const entryDomain = this.dataset.entryDomain;
-      const entryData = JSON.parse(decodeURIComponent(this.dataset.entryData));
+  document.addEventListener('DOMContentLoaded', function() {
+    console.log('Form entries page loaded');
+    
+    // Add a test button for debugging
+    const testBtn = document.createElement('button');
+    testBtn.textContent = 'Test Button';
+    testBtn.className = 'btn-primary';
+    testBtn.addEventListener('click', function() {
+      alert('Test button works!');
+    });
+    document.body.appendChild(testBtn);
+    
+    // View entry details functionality
+    function showEntryModal(entryId, entryDate, entryDomain, entryData, entryAttachments) {
+      console.log('showEntryModal called with:', { entryId, entryDate, entryDomain, entryData, entryAttachments });
+      
+      const entryModal = document.getElementById('entry-modal');
+      const entryDateDisplay = document.getElementById('entry-date-display');
+      const entryDomainDisplay = document.getElementById('entry-domain-display');
+      const entryDataContainer = document.getElementById('entry-data');
+      
+      if (!entryModal) {
+        alert('Modal not found');
+        return;
+      }
       
       entryDateDisplay.textContent = 'Submitted: ' + entryDate;
       entryDomainDisplay.textContent = 'From: ' + entryDomain;
@@ -148,41 +179,135 @@
       // Display entry data
       entryDataContainer.innerHTML = '';
       
-      Object.entries(entryData).forEach(([key, value]) => {
-        const row = document.createElement('div');
+      if (entryData && typeof entryData === 'object') {
+        Object.entries(entryData).forEach(([key, value]) => {
+          const row = document.createElement('div');
+          row.className = 'border-b border-gray-200 pb-3';
+          
+          let displayValue = value;
+          if (Array.isArray(value)) {
+            displayValue = value.join(', ');
+          }
+          
+          // Escape HTML to prevent XSS
+          const escapeHtml = (unsafe) => {
+            return unsafe
+              .replace(/&/g, "&amp;")
+              .replace(/</g, "&lt;")
+              .replace(/>/g, "&gt;")
+              .replace(/"/g, "&quot;")
+              .replace(/'/g, "&#039;");
+          };
+          
+          row.innerHTML = '<div><h4 class="text-sm font-bold text-gray-700">' + escapeHtml(key) + '</h4>' +
+                         '<p class="text-gray-800">' + escapeHtml(displayValue.toString()) + '</p></div>';
+          
+          entryDataContainer.appendChild(row);
+        });
+      } else {
+        entryDataContainer.innerHTML = '<div class="text-center text-gray-500 py-4">No data available for this entry.</div>';
+      }
+      
+      // Display attachments if available
+      if (entryAttachments && Array.isArray(entryAttachments) && entryAttachments.length > 0) {
+        const attachmentSection = document.createElement('div');
+        attachmentSection.className = 'border-b border-gray-200 pb-3';
         
-        let displayValue = value;
-        if (Array.isArray(value)) {
-          displayValue = value.join(', ');
-        }
+        const attachmentHeader = document.createElement('h4');
+        attachmentHeader.className = 'text-sm font-bold text-gray-700';
+        attachmentHeader.textContent = 'Attachments';
+        attachmentSection.appendChild(attachmentHeader);
         
-        row.innerHTML = \`
-          <div class="border-b border-gray-200 pb-3">
-            <h4 class="text-sm font-bold text-gray-700">\${key}</h4>
-            <p class="text-gray-800">\${displayValue}</p>
-          </div>
-        \`;
+        const attachmentList = document.createElement('div');
+        attachmentList.className = 'mt-2';
         
-        entryDataContainer.appendChild(row);
-      });
+        entryAttachments.forEach(attachment => {
+          const attachmentItem = document.createElement('div');
+          attachmentItem.className = 'flex items-center justify-between bg-gray-50 p-2 rounded mb-2';
+          
+          const attachmentInfo = document.createElement('div');
+          attachmentInfo.innerHTML = '<span class="text-gray-800">' + attachment.originalName + '</span>' +
+                                   '<span class="text-gray-500 text-sm ml-2">(' + Math.round(attachment.size / 1024) + 'KB)</span>';
+          
+          const attachmentLink = document.createElement('a');
+          attachmentLink.href = attachment.url;
+          attachmentLink.target = '_blank';
+          attachmentLink.className = 'text-primary hover:text-primary-dark text-sm';
+          attachmentLink.textContent = 'Download';
+          
+          attachmentItem.appendChild(attachmentInfo);
+          attachmentItem.appendChild(attachmentLink);
+          attachmentList.appendChild(attachmentItem);
+        });
+        
+        attachmentSection.appendChild(attachmentList);
+        entryDataContainer.appendChild(attachmentSection);
+      }
       
       entryModal.classList.remove('hidden');
+    }
+    
+    // Add click handlers to all view buttons
+    const viewButtons = document.querySelectorAll('.view-entry-btn');
+    console.log('Found view buttons:', viewButtons.length);
+    
+    if (viewButtons.length === 0) {
+      console.warn('No view buttons found! Check if entries exist and buttons are rendered.');
+    }
+    
+    viewButtons.forEach((button, index) => {
+      console.log('Adding event listener to button', index, button);
+      button.addEventListener('click', function(e) {
+        e.preventDefault();
+        console.log('View button clicked', index);
+        
+        const entryId = this.dataset.entryId;
+        const entryDate = this.dataset.entryDate;
+        const entryDomain = this.dataset.entryDomain;
+        
+        console.log('Button data:', {
+          entryId,
+          entryDate,
+          entryDomain,
+          entryData: this.dataset.entryData,
+          entryAttachments: this.dataset.entryAttachments
+        });
+        
+        try {
+          const entryData = JSON.parse(decodeURIComponent(this.dataset.entryData));
+          const entryAttachments = JSON.parse(decodeURIComponent(this.dataset.entryAttachments || '[]'));
+          showEntryModal(entryId, entryDate, entryDomain, entryData, entryAttachments);
+        } catch (error) {
+          console.error('Error parsing entry data:', error);
+          alert('Error parsing entry data: ' + error.message);
+        }
+      });
     });
-  });
-  
-  // Close modal
-  closeEntryModal.addEventListener('click', function() {
-    entryModal.classList.add('hidden');
-  });
-  
-  closeEntryBtn.addEventListener('click', function() {
-    entryModal.classList.add('hidden');
-  });
-  
-  // Close modal if clicking outside
-  entryModal.addEventListener('click', function(e) {
-    if (e.target === entryModal) {
-      entryModal.classList.add('hidden');
+    
+    // Close modal handlers
+    const closeEntryModal = document.getElementById('close-entry-modal');
+    const closeEntryBtn = document.getElementById('close-entry-btn');
+    const entryModal = document.getElementById('entry-modal');
+    
+    if (closeEntryModal) {
+      closeEntryModal.addEventListener('click', function() {
+        entryModal.classList.add('hidden');
+      });
+    }
+    
+    if (closeEntryBtn) {
+      closeEntryBtn.addEventListener('click', function() {
+        entryModal.classList.add('hidden');
+      });
+    }
+    
+    // Close modal if clicking outside
+    if (entryModal) {
+      entryModal.addEventListener('click', function(e) {
+        if (e.target === entryModal) {
+          entryModal.classList.add('hidden');
+        }
+      });
     }
   });
   
@@ -196,14 +321,16 @@
       const headers = Array.from(table.querySelectorAll('thead th')).map(th => th.textContent.trim());
       const rows = Array.from(table.querySelectorAll('tbody tr'));
       
-      // Remove the "Actions" column
-      headers.pop();
+      // Remove the "Actions" and "Attachments" columns
+      headers.pop(); // Remove Actions
+      headers.pop(); // Remove Attachments
       
       let csvContent = headers.join(',') + '\\n';
       
       rows.forEach(row => {
         const cells = Array.from(row.querySelectorAll('td'));
         cells.pop(); // Remove the actions cell
+        cells.pop(); // Remove the attachments cell
         
         const rowData = cells.map(cell => {
           let content = cell.textContent.trim();
@@ -222,7 +349,7 @@
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.setAttribute('href', url);
-      link.setAttribute('download', 'form_entries_\${new Date().toISOString().split('T')[0]}.csv');
+      link.setAttribute('download', 'form_entries_' + new Date().toISOString().split('T')[0] + '.csv');
       link.style.display = 'none';
       document.body.appendChild(link);
       link.click();

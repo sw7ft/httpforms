@@ -568,15 +568,35 @@
         "placeholder": "Tell us about your vehicle repair needs or questions",
         "required": true,
         "options": []
+      },
+      {
+        "id": "ov62y4agafo",
+        "type": "file",
+        "label": "File Upload",
+        "name": "file_upload",
+        "placeholder": "Upload images of your vehicle",
+        "required": false,
+        "options": []
+      },
+      {
+        "id": "m5qkwykrnxe",
+        "type": "multiple_file",
+        "label": "Multiple File Upload",
+        "name": "multiple_file_upload",
+        "placeholder": "",
+        "required": false,
+        "options": []
       }
     ],
     "domains": [
       "sturgeonautobody.com"
     ],
     "notificationEmails": [
-      "info@sturgeonautobody.com"
+      "info@sturgeonautobody.com",
+      "matt@swiftmedia.ca",
+      "tketsa19@shaw.ca"
     ],
     "createdAt": "2025-06-23T17:34:56.562Z",
-    "updatedAt": "2025-06-23T17:34:56.562Z"
+    "updatedAt": "2025-07-03T15:09:32.058Z"
   }
 ]

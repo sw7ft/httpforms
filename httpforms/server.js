@@ -13,9 +13,49 @@ const expressLayouts = require('express-ejs-layouts');
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 const twilio = require('twilio');
 const twilioClient = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
+const multer = require('multer');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+// Create uploads directory if it doesn't exist
+const uploadsDir = path.join(__dirname, 'uploads');
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+}
+
+// Multer configuration for file uploads
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, uploadsDir);
+  },
+  filename: function (req, file, cb) {
+    // Create unique filename with timestamp and uuid
+    const uniqueSuffix = Date.now() + '-' + uuidv4();
+    const extension = path.extname(file.originalname);
+    cb(null, uniqueSuffix + extension);
+  }
+});
+
+const upload = multer({
+  storage: storage,
+  limits: {
+    fileSize: 10 * 1024 * 1024, // 10MB limit
+    files: 5 // Max 5 files per form
+  },
+  fileFilter: function (req, file, cb) {
+    // Allow common file types
+    const allowedTypes = /jpeg|jpg|png|gif|pdf|doc|docx|txt|csv|xls|xlsx|zip|rar/;
+    const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+    const mimetype = allowedTypes.test(file.mimetype);
+    
+    if (mimetype && extname) {
+      return cb(null, true);
+    } else {
+      cb(new Error('Only images, documents, and archives are allowed!'));
+    }
+  }
+});
 
 // Middleware
 app.set('trust proxy', false);
@@ -158,6 +198,21 @@ function hasPremiumSubscription(req, res, next) {
 }
 
 // Routes
+
+// Serve uploaded files (with access control)
+app.get('/uploads/:filename', (req, res) => {
+  const filename = req.params.filename;
+  const filePath = path.join(uploadsDir, filename);
+  
+  // Check if file exists
+  if (!fs.existsSync(filePath)) {
+    return res.status(404).send('File not found');
+  }
+  
+  // Set appropriate headers for file download
+  res.setHeader('Content-Disposition', 'attachment');
+  res.sendFile(filePath);
+});
 
 // Home page
 app.get('/', (req, res) => {
@@ -532,7 +587,7 @@ app.post('/domain/delete/:id', isAuthenticated, isAdmin, (req, res) => {
 });
 
 // Form submission API
-app.post('/api/submit/:formId', async (req, res) => {
+app.post('/api/submit/:formId', upload.array('attachments', 5), async (req, res) => {
   try {
     // Set CORS headers specifically for this endpoint
     res.header('Access-Control-Allow-Origin', '*');
@@ -541,6 +596,7 @@ app.post('/api/submit/:formId', async (req, res) => {
     
     const formId = req.params.formId;
     const formData = req.body;
+    const files = req.files || [];
     const referer = req.headers.referer || '';
     const domain = new URL(referer).hostname;
     
@@ -549,6 +605,31 @@ app.post('/api/submit/:formId', async (req, res) => {
     
     if (!form) {
       return res.status(404).json({ success: false, message: 'Form not found' });
+    }
+    
+    // Validate CAPTCHA fields if present
+    const captchaFields = form.fields.filter(field => field.type === 'captcha');
+    for (const captchaField of captchaFields) {
+      const answerKey = captchaField.name + '_answer';
+      const dataKey = captchaField.name + '_data';
+      
+      if (formData[answerKey] && formData[dataKey]) {
+        try {
+          const captchaData = JSON.parse(formData[dataKey]);
+          const userAnswer = formData[answerKey].toString().trim();
+          const correctAnswer = captchaData.answer.toString();
+          
+          if (userAnswer !== correctAnswer) {
+            return res.status(400).json({ success: false, message: 'CAPTCHA validation failed' });
+          }
+          
+          // Remove CAPTCHA fields from the data that gets saved
+          delete formData[answerKey];
+          delete formData[dataKey];
+        } catch (error) {
+          return res.status(400).json({ success: false, message: 'Invalid CAPTCHA data' });
+        }
+      }
     }
     
     // Check if domain is allowed
@@ -560,12 +641,22 @@ app.post('/api/submit/:formId', async (req, res) => {
       }
     }
     
-    // Save form entry
+    // Process uploaded files
+    const attachments = files.map(file => ({
+      filename: file.filename,
+      originalName: file.originalname,
+      size: file.size,
+      mimetype: file.mimetype,
+      url: `${req.protocol}://${req.get('host')}/uploads/${file.filename}`
+    }));
+    
+    // Save form entry with attachments
     const entries = readJsonFile(formEntriesFilePath);
     const newEntry = {
       id: uuidv4(),
       formId,
       data: formData,
+      attachments: attachments,
       domain,
       createdAt: new Date().toISOString()
     };
@@ -586,12 +677,26 @@ app.post('/api/submit/:formId', async (req, res) => {
           .map(([key, value]) => `<p><strong>${key}:</strong> ${value}</p>`)
           .join('');
         
+        // Add attachments to email content
+        let attachmentHtml = '';
+        if (attachments.length > 0) {
+          attachmentHtml = `
+            <h3>Attachments:</h3>
+            <ul>
+              ${attachments.map(att => 
+                `<li><a href="${att.url}" target="_blank">${att.originalName}</a> (${Math.round(att.size / 1024)}KB)</li>`
+              ).join('')}
+            </ul>
+          `;
+        }
+        
         // Prepare email content
         const emailSubject = `New submission for ${form.name}`;
         const emailHtml = `
           <h1>New form submission</h1>
           <p>You have a new submission for ${form.name} from ${domain}</p>
           <div>${formFields}</div>
+          ${attachmentHtml}
         `;
         
         // Send to form owner
@@ -630,7 +735,8 @@ app.post('/api/submit/:formId', async (req, res) => {
       
       if (userSubscription && formOwner.phoneNumber) {
         // Send SMS notification
-        const message = `New submission for ${form.name} from ${domain}. Check your email for details.`;
+        const attachmentCount = attachments.length > 0 ? ` with ${attachments.length} attachment(s)` : '';
+        const message = `New submission for ${form.name} from ${domain}${attachmentCount}. Check your email for details.`;
         await sendSmsNotification(form.userId, message);
       }
     }

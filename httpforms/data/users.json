@@ -86,5 +86,25 @@
     "isAdmin": false,
     "createdAt": "2025-06-23T13:26:06.204Z",
     "updatedAt": "2025-06-23T13:26:06.204Z"
+  },
+  {
+    "id": "f8e2bb8b-d461-41b8-a46a-57d7d4e23077",
+    "name": "NATREGTEGH1033254NEYRTHYT",
+    "email": "nquelrts@bonjourfmail.com",
+    "password": "$2b$10$qnGq1pMmberyZHW95UDbFOQdpXWz8WbBHbnucFnRAELhAA1HbHYVe",
+    "phoneNumber": "87734915148",
+    "isAdmin": false,
+    "createdAt": "2025-06-28T06:39:28.835Z",
+    "updatedAt": "2025-06-28T06:39:28.835Z"
+  },
+  {
+    "id": "406afc9b-a77e-40d0-92f6-b095b4089f99",
+    "name": "NARETGR1226283NERTYTRY",
+    "email": "szqvascg@bientotmail.com",
+    "password": "$2b$10$yDn.Ols0jCY/oj3u.J4eq.24TCrzS6Rt.xddW9IvLBjv1isH0.1Sm",
+    "phoneNumber": "89772824939",
+    "isAdmin": false,
+    "createdAt": "2025-06-29T05:33:53.381Z",
+    "updatedAt": "2025-06-29T05:33:53.381Z"
   }
 ]
