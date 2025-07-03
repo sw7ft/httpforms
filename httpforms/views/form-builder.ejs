@@ -40,7 +40,7 @@
         <div class="mb-6">
           <label for="notification-emails" class="form-label">Additional Notification Emails</label>
           <input type="text" id="notification-emails" class="form-input" value="<%= form.notificationEmails ? form.notificationEmails.join(', ') : '' %>" placeholder="email1@example.com, email2@example.com">
-          <p class="mt-1 text-xs text-gray-500">Comma-separated list of additional email addresses to receive form notifications</p>
+          <p class="mt-1 text-xs text-gray-500">Email notifications will be sent to your account email by default. Add comma-separated additional email addresses to receive form notifications.</p>
         </div>
         
         <h3 class="text-lg font-bold text-primary mb-3 mt-8">Add Fields</h3>
@@ -73,10 +73,6 @@
             Simple CAPTCHA
           </button>
         </div>
-        
-        <div class="mt-8">
-          <button id="save-form-btn" class="btn-primary w-full">Save Form</button>
-        </div>
       </div>
     </div>
     
@@ -100,6 +96,16 @@
           <div class="mt-6">
             <button type="button" class="btn-primary w-full">Submit</button>
           </div>
+        </div>
+        
+        <!-- Save Form Button -->
+        <div class="mt-6 flex justify-end">
+          <button id="save-form-btn" class="btn-primary inline-flex items-center px-4 py-2 rounded-md shadow-sm">
+            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3-3m0 0l-3 3m3-3v12"></path>
+            </svg>
+            Save Form
+          </button>
         </div>
       </div>
     </div>

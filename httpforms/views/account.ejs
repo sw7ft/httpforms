@@ -94,9 +94,9 @@
               <div class="text-gray-600">Start Date:</div>
               <div class="font-medium"><%= new Date(subscription.createdAt).toLocaleDateString() %></div>
               
-              <% if (subscription.cancelAt) { %>
+              <% if (subscription.canceledAt) { %>
                 <div class="text-gray-600">Cancels On:</div>
-                <div class="font-medium"><%= new Date(subscription.cancelAt).toLocaleDateString() %></div>
+                <div class="font-medium"><%= new Date(subscription.canceledAt).toLocaleDateString() %></div>
               <% } %>
             </div>
           </div>
@@ -117,7 +117,7 @@
                 </form>
               <% } %>
               
-              <% if (!subscription.cancelAt) { %>
+              <% if (!subscription.canceledAt) { %>
                 <form action="/subscription/cancel" method="POST">
                   <button type="submit" class="text-red-600 hover:text-red-800 font-medium">
                     Cancel Subscription
@@ -131,12 +131,23 @@
                 </form>
               <% } %>
             <% } else if (subscription.status === 'canceled') { %>
-              <form action="/subscription/create" method="POST">
-                <input type="hidden" name="planType" value="<%= subscription.planType %>">
-                <button type="submit" class="btn-primary">
-                  Resubscribe to <%= subscription.planType === 'premium' ? 'Premium' : 'Basic' %> Plan
-                </button>
-              </form>
+              <div class="space-y-3">
+                <p class="text-gray-600 text-sm">Your subscription has been canceled. You can resubscribe to any plan:</p>
+                <div class="flex space-x-3">
+                  <form action="/subscription/resubscribe" method="POST" class="inline">
+                    <input type="hidden" name="planType" value="basic">
+                    <button type="submit" class="btn-outline">
+                      Basic Plan ($5/month)
+                    </button>
+                  </form>
+                  <form action="/subscription/resubscribe" method="POST" class="inline">
+                    <input type="hidden" name="planType" value="premium">
+                    <button type="submit" class="btn-primary">
+                      Premium Plan ($10/month)
+                    </button>
+                  </form>
+                </div>
+              </div>
             <% } %>
             
             <a href="/billing-portal" class="block text-primary hover:text-accent font-medium">

@@ -83,6 +83,7 @@
           <div class="ml-4 flex items-center md:ml-6">
             <% if (locals.user) { %>
               <span class="mr-4 text-sm"><%= user.name %></span>
+              <a href="/account#subscription" class="text-white hover:text-accent px-3 py-2 rounded-md text-sm font-medium">My Account</a>
               <a href="/logout" class="text-white hover:text-accent px-3 py-2 rounded-md text-sm font-medium">Logout</a>
             <% } else { %>
               <a href="/login" class="text-white hover:text-accent px-3 py-2 rounded-md text-sm font-medium">Login</a>
@@ -113,6 +114,7 @@
           <% if (locals.isAdmin) { %>
             <a href="/domains" class="text-white hover:text-accent block px-3 py-2 rounded-md text-base font-medium">Domains</a>
           <% } %>
+          <a href="/account#subscription" class="text-white hover:text-accent block px-3 py-2 rounded-md text-base font-medium">My Account</a>
           <a href="/logout" class="text-white hover:text-accent block px-3 py-2 rounded-md text-base font-medium">Logout</a>
         <% } else { %>
           <a href="/login" class="text-white hover:text-accent block px-3 py-2 rounded-md text-base font-medium">Login</a>

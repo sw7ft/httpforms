@@ -106,5 +106,15 @@
     "isAdmin": false,
     "createdAt": "2025-06-29T05:33:53.381Z",
     "updatedAt": "2025-06-29T05:33:53.381Z"
+  },
+  {
+    "id": "a04c9ec5-b7fe-4b65-8e98-76ef20ef0fa0",
+    "name": "Test Account",
+    "email": "sw7ft1@gmail.com",
+    "password": "$2b$10$q3QGEE6DfXUV7kHazq/t.e31n7KMDg2uqKdYY5vul2jRIbA9OIeq6",
+    "phoneNumber": "+17802409228",
+    "isAdmin": false,
+    "createdAt": "2025-07-03T17:28:22.906Z",
+    "updatedAt": "2025-07-03T17:28:22.906Z"
   }
 ]

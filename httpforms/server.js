@@ -838,7 +838,11 @@ app.get('/plans', (req, res) => {
   try {
     const subscriptions = readJsonFile(subscriptionsFilePath);
     const userSubscription = req.session.userId 
-      ? subscriptions.find(s => s.userId === req.session.userId && s.status === 'active')
+      ? subscriptions.find(s => 
+          s.userId === req.session.userId && 
+          s.status === 'active' && 
+          !s.canceledAt  // Only redirect if subscription is truly active (not canceled)
+        )
       : null;
     
     if (userSubscription) {
@@ -906,27 +910,39 @@ app.get('/subscription/success', isAuthenticated, async (req, res) => {
     // Retrieve checkout session
     const checkoutSession = await stripe.checkout.sessions.retrieve(session_id);
     
+    // Get subscription details from Stripe
+    const stripeSubscription = await stripe.subscriptions.retrieve(checkoutSession.subscription);
+    
     // Create or update subscription record
     const subscriptions = readJsonFile(subscriptionsFilePath);
     
-    // Check if user already has an active subscription
+    // Check if user already has a subscription (active or canceled)
     const existingSubIndex = subscriptions.findIndex(s => 
-      s.userId === req.session.userId && s.status === 'active'
+      s.userId === req.session.userId && 
+      (s.status === 'active' || s.status === 'canceled')
     );
     
     if (existingSubIndex >= 0) {
-      // Update existing subscription
+      // Update existing subscription (could be reactivating a canceled one)
       subscriptions[existingSubIndex].stripeSubscriptionId = checkoutSession.subscription;
+      subscriptions[existingSubIndex].stripeCustomerId = stripeSubscription.customer;
       subscriptions[existingSubIndex].planType = checkoutSession.metadata.planType;
+      subscriptions[existingSubIndex].status = stripeSubscription.status;
       subscriptions[existingSubIndex].updatedAt = new Date().toISOString();
+      
+      // Remove canceledAt if resubscribing
+      if (subscriptions[existingSubIndex].canceledAt) {
+        delete subscriptions[existingSubIndex].canceledAt;
+      }
     } else {
       // Create new subscription
       const newSubscription = {
         id: uuidv4(),
         userId: req.session.userId,
         stripeSubscriptionId: checkoutSession.subscription,
+        stripeCustomerId: stripeSubscription.customer,
         planType: checkoutSession.metadata.planType,
-        status: 'active',
+        status: stripeSubscription.status,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
       };
@@ -954,12 +970,11 @@ app.get('/account', isAuthenticated, (req, res) => {
       return res.render('error', { message: 'User not found' });
     }
     
-    // Get user's subscription
+    // Get user's subscription (include canceled ones for resubscribe options)
     const subscriptions = readJsonFile(subscriptionsFilePath);
     const subscription = subscriptions.find(s => 
       s.userId === req.session.userId && 
-      s.status === 'active' && 
-      !s.canceledAt
+      (s.status === 'active' || s.status === 'canceled')
     );
     
     res.render('account', {
@@ -979,10 +994,13 @@ app.post('/account/update', isAuthenticated, async (req, res) => {
     const { name, email, phoneNumber } = req.body;
     
     if (!name || !email) {
+      const subscriptions = readJsonFile(subscriptionsFilePath);
+      const subscription = subscriptions.find(s => s.userId === req.session.userId && s.status === 'active');
       return res.render('account', { 
         error: 'Name and email are required',
         user: { name: req.session.userName },
-        isAdmin: req.session.isAdmin || false
+        isAdmin: req.session.isAdmin || false,
+        subscription: subscription || null
       });
     }
     
@@ -997,10 +1015,13 @@ app.post('/account/update', isAuthenticated, async (req, res) => {
     const emailExists = users.some(u => u.email === email && u.id !== req.session.userId);
     
     if (emailExists) {
+      const subscriptions = readJsonFile(subscriptionsFilePath);
+      const subscription = subscriptions.find(s => s.userId === req.session.userId && s.status === 'active');
       return res.render('account', { 
         error: 'Email is already in use',
         user: users[userIndex],
-        isAdmin: req.session.isAdmin || false
+        isAdmin: req.session.isAdmin || false,
+        subscription: subscription || null
       });
     }
     
@@ -1026,10 +1047,13 @@ app.post('/account/update', isAuthenticated, async (req, res) => {
     });
   } catch (error) {
     console.error('Update account error:', error);
+    const subscriptions = readJsonFile(subscriptionsFilePath);
+    const subscription = subscriptions.find(s => s.userId === req.session.userId && s.status === 'active');
     res.render('account', { 
       error: 'Failed to update profile',
       user: { name: req.session.userName },
-      isAdmin: req.session.isAdmin || false
+      isAdmin: req.session.isAdmin || false,
+      subscription: subscription || null
     });
   }
 });
@@ -1040,18 +1064,24 @@ app.post('/account/password', isAuthenticated, async (req, res) => {
     const { currentPassword, newPassword, confirmPassword } = req.body;
     
     if (!currentPassword || !newPassword || !confirmPassword) {
+      const subscriptions = readJsonFile(subscriptionsFilePath);
+      const subscription = subscriptions.find(s => s.userId === req.session.userId && s.status === 'active');
       return res.render('account', { 
         error: 'All password fields are required',
         user: { name: req.session.userName },
-        isAdmin: req.session.isAdmin || false
+        isAdmin: req.session.isAdmin || false,
+        subscription: subscription || null
       });
     }
     
     if (newPassword !== confirmPassword) {
+      const subscriptions = readJsonFile(subscriptionsFilePath);
+      const subscription = subscriptions.find(s => s.userId === req.session.userId && s.status === 'active');
       return res.render('account', { 
         error: 'New passwords do not match',
         user: { name: req.session.userName },
-        isAdmin: req.session.isAdmin || false
+        isAdmin: req.session.isAdmin || false,
+        subscription: subscription || null
       });
     }
     
@@ -1066,10 +1096,13 @@ app.post('/account/password', isAuthenticated, async (req, res) => {
     const passwordMatch = await bcrypt.compare(currentPassword, users[userIndex].password);
     
     if (!passwordMatch) {
+      const subscriptions = readJsonFile(subscriptionsFilePath);
+      const subscription = subscriptions.find(s => s.userId === req.session.userId && s.status === 'active');
       return res.render('account', { 
         error: 'Current password is incorrect',
         user: users[userIndex],
-        isAdmin: req.session.isAdmin || false
+        isAdmin: req.session.isAdmin || false,
+        subscription: subscription || null
       });
     }
     
@@ -1091,10 +1124,13 @@ app.post('/account/password', isAuthenticated, async (req, res) => {
     });
   } catch (error) {
     console.error('Change password error:', error);
+    const subscriptions = readJsonFile(subscriptionsFilePath);
+    const subscription = subscriptions.find(s => s.userId === req.session.userId && s.status === 'active');
     res.render('account', { 
       error: 'Failed to change password',
       user: { name: req.session.userName },
-      isAdmin: req.session.isAdmin || false
+      isAdmin: req.session.isAdmin || false,
+      subscription: subscription || null
     });
   }
 });
@@ -1141,10 +1177,13 @@ app.post('/subscription/upgrade', isAuthenticated, async (req, res) => {
     res.redirect(session.url);
   } catch (error) {
     console.error('Upgrade subscription error:', error);
+    const subscriptions = readJsonFile(subscriptionsFilePath);
+    const subscription = subscriptions.find(s => s.userId === req.session.userId && s.status === 'active');
     res.render('account', { 
       error: 'Failed to upgrade subscription: ' + error.message,
       user: { name: req.session.userName },
-      isAdmin: req.session.isAdmin || false
+      isAdmin: req.session.isAdmin || false,
+      subscription: subscription || null
     });
   }
 });
@@ -1170,10 +1209,13 @@ app.post('/subscription/downgrade', isAuthenticated, async (req, res) => {
     res.redirect('/account#subscription');
   } catch (error) {
     console.error('Downgrade subscription error:', error);
+    const subscriptions = readJsonFile(subscriptionsFilePath);
+    const subscription = subscriptions.find(s => s.userId === req.session.userId && s.status === 'active');
     res.render('account', { 
       error: 'Failed to downgrade subscription: ' + error.message,
       user: { name: req.session.userName },
-      isAdmin: req.session.isAdmin || false
+      isAdmin: req.session.isAdmin || false,
+      subscription: subscription || null
     });
   }
 });
@@ -1194,7 +1236,7 @@ app.post('/subscription/cancel', isAuthenticated, async (req, res) => {
     const cancelDate = new Date();
     cancelDate.setMonth(cancelDate.getMonth() + 1); // Cancel in 1 month
     
-    subscriptions[subscriptionIndex].cancelAt = cancelDate.toISOString();
+    subscriptions[subscriptionIndex].canceledAt = cancelDate.toISOString();
     subscriptions[subscriptionIndex].updatedAt = new Date().toISOString();
     
     writeJsonFile(subscriptionsFilePath, subscriptions);
@@ -1202,10 +1244,13 @@ app.post('/subscription/cancel', isAuthenticated, async (req, res) => {
     res.redirect('/account#subscription');
   } catch (error) {
     console.error('Cancel subscription error:', error);
+    const subscriptions = readJsonFile(subscriptionsFilePath);
+    const subscription = subscriptions.find(s => s.userId === req.session.userId && s.status === 'active');
     res.render('account', { 
       error: 'Failed to cancel subscription: ' + error.message,
       user: { name: req.session.userName },
-      isAdmin: req.session.isAdmin || false
+      isAdmin: req.session.isAdmin || false,
+      subscription: subscription || null
     });
   }
 });
@@ -1217,7 +1262,7 @@ app.post('/subscription/reactivate', isAuthenticated, async (req, res) => {
     const subscriptionIndex = subscriptions.findIndex(s => 
       s.userId === req.session.userId && 
       s.status === 'active' && 
-      s.cancelAt
+      s.canceledAt
     );
     
     if (subscriptionIndex === -1) {
@@ -1225,7 +1270,7 @@ app.post('/subscription/reactivate', isAuthenticated, async (req, res) => {
     }
     
     // Remove cancellation date
-    delete subscriptions[subscriptionIndex].cancelAt;
+    delete subscriptions[subscriptionIndex].canceledAt;
     subscriptions[subscriptionIndex].updatedAt = new Date().toISOString();
     
     writeJsonFile(subscriptionsFilePath, subscriptions);
@@ -1233,10 +1278,68 @@ app.post('/subscription/reactivate', isAuthenticated, async (req, res) => {
     res.redirect('/account#subscription');
   } catch (error) {
     console.error('Reactivate subscription error:', error);
+    const subscriptions = readJsonFile(subscriptionsFilePath);
+    const subscription = subscriptions.find(s => s.userId === req.session.userId && s.status === 'active');
     res.render('account', { 
       error: 'Failed to reactivate subscription: ' + error.message,
       user: { name: req.session.userName },
-      isAdmin: req.session.isAdmin || false
+      isAdmin: req.session.isAdmin || false,
+      subscription: subscription || null
+    });
+  }
+});
+
+// Resubscribe to a plan (for completely canceled subscriptions)
+app.post('/subscription/resubscribe', isAuthenticated, async (req, res) => {
+  try {
+    const { planType } = req.body;
+    
+    if (!planType || (planType !== 'basic' && planType !== 'premium')) {
+      return res.redirect('/account?error=Invalid plan type');
+    }
+    
+    // Get the appropriate price ID based on plan type
+    const priceId = planType === 'basic' 
+      ? process.env.STRIPE_BASIC_PRICE_ID 
+      : process.env.STRIPE_PREMIUM_PRICE_ID;
+    
+    const users = readJsonFile(usersFilePath);
+    const user = users.find(u => u.id === req.session.userId);
+    
+    if (!user) {
+      return res.render('error', { message: 'User not found' });
+    }
+    
+    // Create Stripe checkout session
+    const session = await stripe.checkout.sessions.create({
+      payment_method_types: ['card'],
+      customer_email: user.email,
+      client_reference_id: user.id,
+      line_items: [
+        {
+          price: priceId,
+          quantity: 1,
+        },
+      ],
+      mode: 'subscription',
+      success_url: `${req.protocol}://${req.get('host')}/subscription/success?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${req.protocol}://${req.get('host')}/account#subscription`,
+      metadata: {
+        userId: user.id,
+        planType: planType
+      }
+    });
+    
+    res.redirect(session.url);
+  } catch (error) {
+    console.error('Resubscribe error:', error);
+    const subscriptions = readJsonFile(subscriptionsFilePath);
+    const subscription = subscriptions.find(s => s.userId === req.session.userId);
+    res.render('account', { 
+      error: 'Failed to start resubscription: ' + error.message,
+      user: { name: req.session.userName },
+      isAdmin: req.session.isAdmin || false,
+      subscription: subscription || null
     });
   }
 });
@@ -1245,28 +1348,52 @@ app.post('/subscription/reactivate', isAuthenticated, async (req, res) => {
 app.get('/billing-portal', isAuthenticated, async (req, res) => {
   try {
     const subscriptions = readJsonFile(subscriptionsFilePath);
-    const subscription = subscriptions.find(s => s.userId === req.session.userId);
+    const subscription = subscriptions.find(s => s.userId === req.session.userId && s.status === 'active');
     
-    if (!subscription) {
+    if (!subscription || !subscription.stripeSubscriptionId) {
       return res.redirect('/plans');
     }
     
     const users = readJsonFile(usersFilePath);
     const user = users.find(u => u.id === req.session.userId);
     
+    if (!user) {
+      return res.render('error', { message: 'User not found' });
+    }
+    
+    // Get customer ID from Stripe subscription if not stored locally
+    let customerId = subscription.stripeCustomerId;
+    
+    if (!customerId) {
+      // Retrieve subscription from Stripe to get customer ID
+      const stripeSubscription = await stripe.subscriptions.retrieve(subscription.stripeSubscriptionId);
+      customerId = stripeSubscription.customer;
+      
+      // Update local record with customer ID for future use
+      const subscriptionIndex = subscriptions.findIndex(s => s.id === subscription.id);
+      if (subscriptionIndex !== -1) {
+        subscriptions[subscriptionIndex].stripeCustomerId = customerId;
+        subscriptions[subscriptionIndex].updatedAt = new Date().toISOString();
+        writeJsonFile(subscriptionsFilePath, subscriptions);
+      }
+    }
+    
     // Create Stripe customer portal session
     const session = await stripe.billingPortal.sessions.create({
-      customer: subscription.stripeCustomerId,
+      customer: customerId,
       return_url: `${req.protocol}://${req.get('host')}/account#subscription`,
     });
     
     res.redirect(session.url);
   } catch (error) {
     console.error('Billing portal error:', error);
+    const subscriptions = readJsonFile(subscriptionsFilePath);
+    const subscription = subscriptions.find(s => s.userId === req.session.userId && s.status === 'active');
     res.render('account', { 
       error: 'Failed to access billing portal: ' + error.message,
       user: { name: req.session.userName },
-      isAdmin: req.session.isAdmin || false
+      isAdmin: req.session.isAdmin || false,
+      subscription: subscription || null
     });
   }
 });
@@ -1376,6 +1503,21 @@ async function handleSubscriptionChange(subscription) {
       subscriptions[existingIndex].status = subscription.status;
       subscriptions[existingIndex].updatedAt = new Date().toISOString();
       
+      // Store customer ID if not already present
+      if (!subscriptions[existingIndex].stripeCustomerId) {
+        subscriptions[existingIndex].stripeCustomerId = subscription.customer;
+      }
+      
+      // Update plan type based on subscription items (if available)
+      if (subscription.items && subscription.items.data && subscription.items.data.length > 0) {
+        const priceId = subscription.items.data[0].price.id;
+        if (priceId === process.env.STRIPE_BASIC_PRICE_ID) {
+          subscriptions[existingIndex].planType = 'basic';
+        } else if (priceId === process.env.STRIPE_PREMIUM_PRICE_ID) {
+          subscriptions[existingIndex].planType = 'premium';
+        }
+      }
+      
       // Check if subscription was canceled at period end
       if (subscription.cancel_at_period_end) {
         subscriptions[existingIndex].canceledAt = new Date().toISOString();
@@ -1383,6 +1525,30 @@ async function handleSubscriptionChange(subscription) {
         // Remove canceledAt if subscription was reactivated
         delete subscriptions[existingIndex].canceledAt;
       }
+    } else {
+      // Create new subscription record if it doesn't exist
+      // This handles cases where webhook arrives before checkout success
+      console.log('Creating subscription record from webhook for subscription:', subscription.id);
+      const newSubscription = {
+        id: uuidv4(),
+        userId: null, // Will need to be linked later
+        stripeSubscriptionId: subscription.id,
+        stripeCustomerId: subscription.customer,
+        planType: 'basic', // Default, will be updated based on price
+        status: subscription.status,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+      
+      // Determine plan type from subscription items
+      if (subscription.items && subscription.items.data && subscription.items.data.length > 0) {
+        const priceId = subscription.items.data[0].price.id;
+        if (priceId === process.env.STRIPE_PREMIUM_PRICE_ID) {
+          newSubscription.planType = 'premium';
+        }
+      }
+      
+      subscriptions.push(newSubscription);
     }
     
     writeJsonFile(subscriptionsFilePath, subscriptions);

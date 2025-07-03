@@ -22,9 +22,19 @@
     "id": "7c6e0daa-90fd-46b5-a02c-dc9285b2b460",
     "userId": "11c00d12-6446-4e6d-8c59-c6dda9440d8c",
     "stripeSubscriptionId": "sub_1RC3TTJHz5yztf7NPJlcaTdi",
-    "planType": "premium",
+    "planType": "basic",
     "status": "active",
     "createdAt": "2025-04-09T18:35:49.823Z",
-    "updatedAt": "2025-04-09T18:35:49.823Z"
+    "updatedAt": "2025-07-03T16:39:31.589Z"
+  },
+  {
+    "id": "96a9650b-e979-4e89-ad71-e258073c1b54",
+    "userId": "a04c9ec5-b7fe-4b65-8e98-76ef20ef0fa0",
+    "stripeSubscriptionId": "sub_1Rgr6KJHz5yztf7N2aPl6pCN",
+    "stripeCustomerId": "cus_Sc5GeQTuShxwCg",
+    "planType": "basic",
+    "status": "active",
+    "createdAt": "2025-07-03T17:28:55.918Z",
+    "updatedAt": "2025-07-03T17:39:14.506Z"
   }
 ]
