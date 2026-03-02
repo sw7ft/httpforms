@@ -72,6 +72,9 @@
           <button data-type="captcha" class="add-field-btn btn-outline w-full justify-center mb-2">
             Simple CAPTCHA
           </button>
+          <button data-type="advanced-captcha" class="add-field-btn btn-outline w-full justify-center mb-2">
+            Advanced Puzzle CAPTCHA
+          </button>
         </div>
       </div>
     </div>
@@ -174,6 +177,14 @@
         newField.enableAudio = true; // enable audio version for accessibility
       }
       
+      // For Advanced CAPTCHA fields, add specific properties
+      if (fieldType === 'advanced-captcha') {
+        newField.puzzleType = 'slider'; // slider, drag-drop, pattern
+        newField.difficulty = 'medium'; // easy, medium, hard
+        newField.trackMouse = true; // track mouse movements for bot detection
+        newField.timeValidation = true; // validate minimum time taken
+      }
+      
       formFields.push(newField);
       renderFormFields();
       openFieldSettings(formFields.length - 1);
@@ -248,7 +259,7 @@
     \`;
     
     // Don't show placeholder for certain field types
-    if (field.type !== 'captcha' && field.type !== 'checkbox' && field.type !== 'radio') {
+    if (field.type !== 'captcha' && field.type !== 'advanced-captcha' && field.type !== 'checkbox' && field.type !== 'radio') {
       settingsHTML += \`
         <div>
           <label class="form-label">Placeholder</label>
@@ -258,14 +269,14 @@
     }
     
     // Don't show required checkbox for CAPTCHA (always required)
-    if (field.type !== 'captcha') {
+    if (field.type !== 'captcha' && field.type !== 'advanced-captcha') {
       settingsHTML += \`
         <div class="flex items-center">
           <input type="checkbox" id="field-required" class="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded" \${field.required ? 'checked' : ''}>
           <label for="field-required" class="ml-2 block text-sm text-gray-700">Required field</label>
         </div>
       \`;
-    } else {
+    } else if (field.type === 'captcha') {
       // CAPTCHA specific settings
       settingsHTML += \`
         <div class="mt-4">
@@ -286,6 +297,36 @@
           <label for="captcha-enable-audio" class="ml-2 block text-sm text-gray-700">Enable audio CAPTCHA</label>
         </div>
         <p class="text-xs text-gray-500 mt-1">Adds an audio button for accessibility (works with math problems only)</p>
+      \`;
+    } else if (field.type === 'advanced-captcha') {
+      // Advanced CAPTCHA specific settings
+      settingsHTML += \`
+        <div class="mt-4">
+          <label class="form-label">Puzzle Type</label>
+          <select id="puzzle-type" class="form-input">
+            <option value="slider" \${field.puzzleType === 'slider' ? 'selected' : ''}>Slider Puzzle</option>
+            <option value="drag-drop" \${field.puzzleType === 'drag-drop' ? 'selected' : ''}>Drag & Drop</option>
+            <option value="pattern" \${field.puzzleType === 'pattern' ? 'selected' : ''}>Pattern Recognition</option>
+          </select>
+        </div>
+        <div class="mt-4">
+          <label class="form-label">Difficulty Level</label>
+          <select id="puzzle-difficulty" class="form-input">
+            <option value="easy" \${field.difficulty === 'easy' ? 'selected' : ''}>Easy</option>
+            <option value="medium" \${field.difficulty === 'medium' ? 'selected' : ''}>Medium</option>
+            <option value="hard" \${field.difficulty === 'hard' ? 'selected' : ''}>Hard</option>
+          </select>
+        </div>
+        <div class="flex items-center mt-4">
+          <input type="checkbox" id="track-mouse" class="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded" \${field.trackMouse ? 'checked' : ''}>
+          <label for="track-mouse" class="ml-2 block text-sm text-gray-700">Track mouse movements</label>
+        </div>
+        <p class="text-xs text-gray-500 mt-1">Analyzes mouse behavior to detect bots</p>
+        <div class="flex items-center mt-4">
+          <input type="checkbox" id="time-validation" class="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded" \${field.timeValidation ? 'checked' : ''}>
+          <label for="time-validation" class="ml-2 block text-sm text-gray-700">Minimum time validation</label>
+        </div>
+        <p class="text-xs text-gray-500 mt-1">Requires minimum time to complete puzzle (prevents instant solving)</p>
       \`;
     }
     
@@ -374,19 +415,27 @@
       field.label = document.getElementById('field-label').value;
       field.name = document.getElementById('field-name').value;
       
-      if (field.type !== 'captcha' && field.type !== 'checkbox' && field.type !== 'radio') {
+      if (field.type !== 'captcha' && field.type !== 'advanced-captcha' && field.type !== 'checkbox' && field.type !== 'radio') {
         field.placeholder = document.getElementById('field-placeholder').value;
       }
       
-      if (field.type !== 'captcha') {
+      if (field.type !== 'captcha' && field.type !== 'advanced-captcha') {
         field.required = document.getElementById('field-required').checked;
-      } else {
+      } else if (field.type === 'captcha') {
         // CAPTCHA is always required
         field.required = true;
         // Save CAPTCHA specific settings
         field.difficulty = document.getElementById('captcha-difficulty').value;
         field.mathOnly = document.getElementById('captcha-math-only').checked;
         field.enableAudio = document.getElementById('captcha-enable-audio').checked;
+      } else if (field.type === 'advanced-captcha') {
+        // Advanced CAPTCHA is always required
+        field.required = true;
+        // Save Advanced CAPTCHA specific settings
+        field.puzzleType = document.getElementById('puzzle-type').value;
+        field.difficulty = document.getElementById('puzzle-difficulty').value;
+        field.trackMouse = document.getElementById('track-mouse').checked;
+        field.timeValidation = document.getElementById('time-validation').checked;
       }
       
       // Save options for select, checkbox, or radio fields
@@ -429,8 +478,29 @@
       fieldElement.className = 'field-wrapper border border-gray-200 rounded p-4 hover:border-primary cursor-pointer';
       fieldElement.dataset.index = index;
       
+      const isFirst = index === 0;
+      const isLast = index === formFields.length - 1;
+      
       let fieldHTML = \`
-        <label class="form-label \${field.required ? 'font-bold' : ''}">\${field.label}\${field.required ? ' *' : ''}</label>
+        <div class="flex justify-between items-start mb-2">
+          <label class="form-label \${field.required ? 'font-bold' : ''} mb-0">\${field.label}\${field.required ? ' *' : ''}</label>
+          <div class="flex gap-1 ml-2">
+            <button type="button" data-move-up="\${index}"
+              class="move-up-btn p-1 rounded hover:bg-gray-200 transition-colors \${isFirst ? 'opacity-30 cursor-not-allowed' : 'text-gray-600 hover:text-primary'}" 
+              \${isFirst ? 'disabled' : ''} title="Move up">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7" />
+              </svg>
+            </button>
+            <button type="button" data-move-down="\${index}"
+              class="move-down-btn p-1 rounded hover:bg-gray-200 transition-colors \${isLast ? 'opacity-30 cursor-not-allowed' : 'text-gray-600 hover:text-primary'}" 
+              \${isLast ? 'disabled' : ''} title="Move down">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+          </div>
+        </div>
       \`;
       
       switch (field.type) {
@@ -504,10 +574,55 @@
             <p class="text-xs text-gray-500 mt-1">This will generate a new challenge for each visitor</p>
           \`;
           break;
+        case 'advanced-captcha':
+          // Show a sample puzzle CAPTCHA in the preview
+          fieldHTML += \`
+            <div class="bg-gray-100 p-4 rounded mt-2 mb-3">
+              <p class="text-sm font-medium mb-3">Complete the puzzle by dragging the piece to the correct position</p>
+              <div class="relative bg-blue-200 w-64 h-40 mx-auto rounded border-2 border-dashed border-blue-400 flex items-center justify-center">
+                <div class="absolute top-2 left-2 w-16 h-16 bg-blue-500 rounded opacity-50"></div>
+                <div class="w-16 h-16 bg-blue-500 rounded cursor-move shadow-md" style="margin-left: 100px;">
+                  <div class="w-full h-full flex items-center justify-center text-white text-xs">Drag me</div>
+                </div>
+              </div>
+              <button type="button" class="mt-2 text-xs text-primary hover:underline" onclick="event.stopPropagation();">
+                🔄 New Puzzle
+              </button>
+            </div>
+            <input type="hidden" name="puzzle_token" value="preview">
+            <p class="text-xs text-gray-500 mt-1">Interactive puzzle will be generated for each visitor</p>
+          \`;
+          break;
       }
       
       fieldElement.innerHTML = fieldHTML;
       formFieldsContainer.appendChild(fieldElement);
+      
+      // Add click event listeners to move buttons (must be added before the parent click listener)
+      const moveUpBtn = fieldElement.querySelector('.move-up-btn');
+      const moveDownBtn = fieldElement.querySelector('.move-down-btn');
+      
+      if (moveUpBtn) {
+        moveUpBtn.addEventListener('click', function(e) {
+          e.stopPropagation();
+          const idx = parseInt(this.dataset.moveUp);
+          if (idx > 0) {
+            [formFields[idx], formFields[idx - 1]] = [formFields[idx - 1], formFields[idx]];
+            renderFormFields();
+          }
+        });
+      }
+      
+      if (moveDownBtn) {
+        moveDownBtn.addEventListener('click', function(e) {
+          e.stopPropagation();
+          const idx = parseInt(this.dataset.moveDown);
+          if (idx < formFields.length - 1) {
+            [formFields[idx], formFields[idx + 1]] = [formFields[idx + 1], formFields[idx]];
+            renderFormFields();
+          }
+        });
+      }
       
       // Add click event to open field settings
       fieldElement.addEventListener('click', function() {
@@ -532,6 +647,7 @@
       case 'file': return 'File Upload';
       case 'photo-gallery': return 'Photo Gallery Upload';
       case 'captcha': return 'Security Check';
+      case 'advanced-captcha': return 'Advanced Security Puzzle';
       default: return 'Field';
     }
   }
@@ -547,6 +663,7 @@
       case 'file': return 'file_upload';
       case 'photo-gallery': return 'photo_gallery';
       case 'captcha': return 'captcha';
+      case 'advanced-captcha': return 'advanced_captcha';
       default: return 'field';
     }
   }
